@@ -1,0 +1,78 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Create account | MailFlow Studio{% endblock %}
+
+{% block content %}
+<h1 class="auth-title">Create your account</h1>
+<p class="auth-lede">Join MailFlow Studio to manage your own email-sending account.</p>
+
+{% include "_flash.html" %}
+
+<form class="acc-form" method="post" action="{{ url_for('register') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="acc-field">
+    <label class="acc-label" for="full_name">Full name</label>
+    <input class="acc-input" id="full_name" name="full_name" type="text"
+           maxlength="120" autocomplete="name" required
+           value="{{ request.form.get('full_name', '') }}">
+  </div>
+
+  <div class="acc-field">
+    <label class="acc-label" for="email">Account email</label>
+    <input class="acc-input" id="email" name="email" type="email"
+           maxlength="254" autocomplete="email" required
+           placeholder="you@example.com"
+           value="{{ request.form.get('email', '') }}"
+           aria-describedby="email-hint">
+    <p class="acc-hint" id="email-hint">This is the email you will use to log in to MailFlow Studio. You choose the Gmail address you send from later, in Settings.</p>
+  </div>
+
+  <div class="acc-field">
+    <label class="acc-label" for="password">Password</label>
+    <div class="acc-pw">
+      <input class="acc-input" id="password" name="password" type="password"
+             minlength="12" maxlength="128" autocomplete="new-password" required
+             aria-describedby="password-rules">
+      <button class="acc-pw-toggle" type="button" data-toggle-password
+              aria-controls="password" aria-label="Show password" hidden>
+        <svg class="icon icon-show" aria-hidden="true"><use href="#i-eye"/></svg>
+        <svg class="icon icon-hide" aria-hidden="true"><use href="#i-eye-off"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="acc-field">
+    <label class="acc-label" for="confirm_password">Confirm password</label>
+    <div class="acc-pw">
+      <input class="acc-input" id="confirm_password" name="confirm_password" type="password"
+             minlength="12" maxlength="128" autocomplete="new-password" required
+             aria-describedby="password-rules">
+      <button class="acc-pw-toggle" type="button" data-toggle-password
+              aria-controls="confirm_password" aria-label="Show confirmation password" hidden>
+        <svg class="icon icon-show" aria-hidden="true"><use href="#i-eye"/></svg>
+        <svg class="icon icon-hide" aria-hidden="true"><use href="#i-eye-off"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <ul class="rules" id="password-rules" aria-label="Password requirements">
+    <li data-rule="length">
+      <span class="rule-mark" aria-hidden="true"></span>
+      <span>Use at least 12 characters</span>
+      <span class="sr-only rule-state"> (not met yet)</span>
+    </li>
+    <li data-rule="match">
+      <span class="rule-mark" aria-hidden="true"></span>
+      <span>Both passwords match</span>
+      <span class="sr-only rule-state"> (not met yet)</span>
+    </li>
+  </ul>
+
+  <button class="btn btn-primary acc-submit" type="submit">Create account</button>
+</form>
+
+<p class="auth-switch">Already registered?
+  <a class="acc-link" href="{{ url_for('login') }}">Log in</a>
+</p>
+{% endblock %}

@@ -1,0 +1,16 @@
+{# Flash messages, styled by category.
+   error / danger / warning -> red, success -> green, anything else -> blue.
+   Errors use role="alert" so screen readers announce them straight away. #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flashes">
+    {% for category, message in messages %}
+      {% set kind = "error" if category in ("error", "danger", "warning") else ("success" if category == "success" else "info") %}
+      <div class="flash flash-{{ kind }}" role="{{ 'alert' if kind == 'error' else 'status' }}">
+        <svg class="icon" aria-hidden="true"><use href="#{{ 'i-alert' if kind == 'error' else ('i-check' if kind == 'success' else 'i-info') }}"/></svg>
+        <p>{{ message }}</p>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}

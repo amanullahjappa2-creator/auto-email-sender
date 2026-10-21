@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Email settings | MailFlow Studio{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+  <script src="{{ url_for('static', filename='js/account.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+{% include "_account_icons.html" %}
+
+<div class="settings">
+  <header class="acc-head">
+    <h1>Email settings</h1>
+    <p>Choose the Gmail account MailFlow Studio sends from. These settings are saved separately for your account.</p>
+  </header>
+
+  {% include "_flash.html" %}
+
+  <div class="settings-grid">
+    <form class="settings-form" method="post" action="{{ url_for('settings') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      {# ---------- Email account ---------- #}
+      <section class="panel" aria-labelledby="account-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="account-title">Email account</h2>
+            <p>The address your emails come from, and the name people see.</p>
+          </div>
+        </div>
+        <div class="set-body">
+          <div class="acc-field">
+            <label class="acc-label" for="mail_address">Gmail sending address</label>
+            <input class="acc-input" id="mail_address" name="mail_address" type="email"
+                   maxlength="254" value="{{ user.mail_address or '' }}"
+                   autocomplete="off" required
+                   placeholder="you@gmail.com"
+                   aria-describedby="mail-address-hint">
+            <p class="acc-hint" id="mail-address-hint">The Gmail account your emails are sent from. It can be different from the email you use to log in to MailFlow Studio.</p>
+          </div>
+
+          <div class="acc-field">
+            <label class="acc-label" for="sender_name">Sender display name</label>
+            <input class="acc-input" id="sender_name" name="sender_name" type="text"
+                   maxlength="120" value="{{ user.sender_name or '' }}"
+                   autocomplete="off"
+                   aria-describedby="sender-name-hint">
+            <p class="acc-hint" id="sender-name-hint">The name recipients see next to your address. Optional.</p>
+          </div>
+        </div>
+      </section>
+
+      {# ---------- SMTP configuration ---------- #}
+      <section class="panel" aria-labelledby="smtp-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="smtp-title">SMTP configuration</h2>
+            <p>Connection details for sending. The defaults work for Gmail.</p>
+          </div>
+        </div>
+        <div class="set-body">
+          <div class="acc-row">
+            <div class="acc-field">
+              <label class="acc-label" for="smtp_host">SMTP host</label>
+              <input class="acc-input" id="smtp_host" name="smtp_host" type="text"
+                     maxlength="255" value="{{ user.smtp_host or 'smtp.gmail.com' }}" required
+                     aria-describedby="smtp-host-hint">
+              <p class="acc-hint" id="smtp-host-hint">For Gmail, use smtp.gmail.com.</p>
+            </div>
+            <div class="acc-field">
+              <label class="acc-label" for="smtp_port">SMTP port</label>
+              <input class="acc-input" id="smtp_port" name="smtp_port" type="number"
+                     min="1" max="65535" value="{{ user.smtp_port or 465 }}" required
+                     aria-describedby="smtp-port-hint">
+              <p class="acc-hint" id="smtp-port-hint">Gmail over SSL uses 465.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {# ---------- Credential security ---------- #}
+      <section class="panel" aria-labelledby="security-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="security-title">Credential security</h2>
+            <p>Your Gmail App Password is stored encrypted and is never shown again.</p>
+          </div>
+          {% if user.encrypted_app_password %}
+            <span class="pill pill-ok">Saved</span>
+          {% else %}
+            <span class="pill">Not saved</span>
+          {% endif %}
+        </div>
+        <div class="set-body">
+          <div class="acc-field">
+            <label class="acc-label" for="app_password">Gmail App Password</label>
+            <div class="acc-pw">
+              <input class="acc-input" id="app_password" name="app_password" type="password"
+                     maxlength="256" autocomplete="new-password"
+                     placeholder="{% if user.encrypted_app_password %}Saved — enter a new one only to change it{% else %}Enter your Gmail App Password{% endif %}"
+                     {% if not user.encrypted_app_password %}required{% endif %}
+                     aria-describedby="app-password-hint">
+              <button class="acc-pw-toggle" type="button" data-toggle-password
+                      aria-controls="app_password" aria-label="Show App Password" hidden>
+                <svg class="icon icon-show" aria-hidden="true"><use href="#i-eye"/></svg>
+                <svg class="icon icon-hide" aria-hidden="true"><use href="#i-eye-off"/></svg>
+              </button>
+            </div>
+            <p class="acc-hint" id="app-password-hint">
+              {% if user.encrypted_app_password %}A password is saved. Leave this blank to keep it, or enter a new one to replace it.{% else %}Paste the App Password from your Google account.{% endif %}
+              Never enter your normal Gmail password.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div class="settings-actions">
+        <button class="btn btn-primary" type="submit">Save settings</button>
+        {% if user.encrypted_app_password %}
+          <span class="acc-hint">The saved App Password stays unless you type a new one.</span>
+        {% endif %}
+      </div>
+    </form>
+
+    {# ---------- Side column ---------- #}
+    <div class="set-side">
+      <section class="panel" aria-labelledby="glance-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="glance-title">Your two emails</h2>
+            <p>Logging in and sending are separate.</p>
+          </div>
+        </div>
+        <dl class="identity">
+          {% if user.email %}
+          <div>
+            <dt>MailFlow login</dt>
+            <dd>{{ user.email }}</dd>
+          </div>
+          {% endif %}
+          <div>
+            <dt>Gmail sending address</dt>
+            <dd>{% if user.mail_address %}{{ user.mail_address }}{% else %}<span class="muted">Not set yet</span>{% endif %}</dd>
+          </div>
+          <div>
+            <dt>App Password</dt>
+            <dd>{% if user.encrypted_app_password %}<span class="pill pill-ok">Saved</span>{% else %}<span class="pill">Not saved</span>{% endif %}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="panel" aria-labelledby="howto-title">
+        <div class="panel-head">
+          <div>
+            <h2 id="howto-title">Get an App Password</h2>
+            <p>Google requires one instead of your normal password.</p>
+          </div>
+        </div>
+        <ol class="steps">
+          <li>
+            <span class="step-no" aria-hidden="true">1</span>
+            <div>
+              <strong>Turn on 2-Step Verification</strong>
+              <p>In the Security section of your Google account.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-no" aria-hidden="true">2</span>
+            <div>
+              <strong>Open App passwords</strong>
+              <p>Search for it in your Google account settings.</p>
+            </div>
+          </li>
+          <li>
+            <span class="step-no" aria-hidden="true">3</span>
+            <div>
+              <strong>Create and paste it here</strong>
+              <p>Give it a name, create it, then paste the password into the field.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}

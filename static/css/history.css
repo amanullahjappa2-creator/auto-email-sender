@@ -1,0 +1,43 @@
+/* MailFlow Studio - history.css
+   Email history page only. Uses the variables and shared components
+   (.stats, .panel, .table, .badge, .empty, .btn) from app.css. */
+
+.hist-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.hist-head h1 { font: 700 28px/1.15 var(--font-display); letter-spacing: -0.02em; }
+.hist-head p { margin-top: 6px; color: var(--muted); }
+
+/* app.css gives .stats four columns; this page has three cards */
+.hist-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 24px;
+}
+
+.hist-scroll { overflow-x: auto; }
+.hist-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.hist-table { min-width: 600px; }
+.hist-table td { overflow-wrap: anywhere; }
+.hist-table .col-nowrap { white-space: nowrap; }
+.hist-recipient { font-weight: 500; }
+
+/* Status colours for anything that is not sent / failed / scheduled */
+.badge-other { --c: var(--muted); }
+
+.history .empty .btn { margin-top: 2px; }
+
+@media (max-width: 640px) {
+  .hist-head { flex-direction: column; gap: 14px; }
+  .hist-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .hist-stats .stat { padding: 14px; }
+  .hist-stats .stat dt { font-size: 13px; gap: 6px; }
+  .hist-stats .stat-num { font-size: 28px; }
+  .hist-stats .stat-note { display: none; }
+  .hist-table th, .hist-table td { padding-left: 16px; padding-right: 16px; }
+}
