@@ -1,0 +1,41 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Log in | MailFlow Studio{% endblock %}
+
+{% block content %}
+<h1 class="auth-title">Welcome back</h1>
+<p class="auth-lede">Log in to access your personal MailFlow Studio account.</p>
+
+{% include "_flash.html" %}
+
+<form class="acc-form" method="post" action="{{ url_for('login') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <div class="acc-field">
+    <label class="acc-label" for="email">Account email</label>
+    <input class="acc-input" id="email" name="email" type="email"
+           maxlength="254" autocomplete="email" required
+           placeholder="you@example.com"
+           value="{{ request.form.get('email', '') }}">
+  </div>
+
+  <div class="acc-field">
+    <label class="acc-label" for="password">Password</label>
+    <div class="acc-pw">
+      <input class="acc-input" id="password" name="password" type="password"
+             autocomplete="current-password" required>
+      <button class="acc-pw-toggle" type="button" data-toggle-password
+              aria-controls="password" aria-label="Show password" hidden>
+        <svg class="icon icon-show" aria-hidden="true"><use href="#i-eye"/></svg>
+        <svg class="icon icon-hide" aria-hidden="true"><use href="#i-eye-off"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <button class="btn btn-primary acc-submit" type="submit">Log in</button>
+</form>
+
+<p class="auth-switch">New to MailFlow Studio?
+  <a class="acc-link" href="{{ url_for('register') }}">Create an account</a>
+</p>
+{% endblock %}

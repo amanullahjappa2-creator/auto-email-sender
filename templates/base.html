@@ -1,0 +1,137 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>{% block title %}MailFlow Studio{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+
+    <script src="{{ url_for('static', filename='js/theme-init.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+
+<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+        <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+        <symbol id="i-overview" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+        <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c1.9.7 3.2 2.4 3.6 5.2"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+        <symbol id="i-list" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
+        <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+    </defs>
+</svg>
+
+<div class="app">
+    {% if current_user.is_authenticated %}
+    <aside class="sidebar">
+        <a class="brand" href="{{ url_for('dashboard') }}" aria-label="MailFlow Studio home">
+            <span class="brand-mark"><svg class="icon"><use href="#i-mail"/></svg></span>
+            <span class="brand-name">mailflow<span class="brand-dot">.</span></span>
+        </a>
+
+        <nav class="nav" aria-label="Main">
+            <a class="nav-item" href="{{ url_for('dashboard') }}"{% if request.endpoint == 'dashboard' %} aria-current="page"{% endif %}>
+                <svg class="icon"><use href="#i-overview"/></svg>Overview
+            </a>
+            <a class="nav-item" href="{{ url_for('compose') }}"{% if request.endpoint == 'compose' %} aria-current="page"{% endif %}>
+                <svg class="icon"><use href="#i-mail"/></svg>Compose
+            </a>
+            <button class="nav-item" type="button" data-soon="Scheduling is coming soon.">
+                <svg class="icon"><use href="#i-clock"/></svg>Scheduled
+            </button>
+            <button class="nav-item" type="button" data-soon="Contact management is coming soon.">
+                <svg class="icon"><use href="#i-users"/></svg>Contacts
+            </button>
+            <button class="nav-item" type="button" data-soon="Saved templates are coming soon.">
+                <svg class="icon"><use href="#i-file"/></svg>Templates
+            </button>
+            <span class="nav-sep" role="presentation"></span>
+            <a class="nav-item" href="{{ url_for('history') }}"{% if request.endpoint == 'history' %} aria-current="page"{% endif %}>
+                <svg class="icon"><use href="#i-list"/></svg>History
+            </a>
+            <a class="nav-item" href="{{ url_for('settings') }}"{% if request.endpoint == 'settings' %} aria-current="page"{% endif %}>
+                <svg class="icon"><use href="#i-settings"/></svg>Email Settings
+            </a>
+        </nav>
+
+        <div class="side-foot">
+            <p class="local-note">Your MailFlow account has its own email settings and activity history.</p>
+            <div class="profile">
+                <span class="avatar" aria-hidden="true">{{ initial }}</span>
+                <span class="profile-text">
+                    <strong>{{ full_name }}</strong>
+                    <small>{{ current_user.email }}</small>
+                </span>
+            </div>
+            <form method="post" action="{{ url_for('logout') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="nav-item" type="submit">Log out</button>
+            </form>
+        </div>
+    </aside>
+    {% endif %}
+
+    <div class="main">
+        <header class="topbar">
+            {% if current_user.is_authenticated %}
+            <label class="search">
+                <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                <span class="sr-only">Search</span>
+                <input id="search" type="search" placeholder="Search emails and contacts" autocomplete="off">
+                <kbd id="search-hint">Ctrl K</kbd>
+            </label>
+            {% else %}
+            <a class="brand" href="{{ url_for('login') }}">
+                <span class="brand-name">mailflow<span class="brand-dot">.</span></span>
+            </a>
+            {% endif %}
+
+            <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
+                <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+                <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+            </button>
+        </header>
+
+        <main class="page">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages" role="status" aria-live="polite">
+                        {% for category, message in messages %}
+                            <p class="state">{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% if not current_user.is_authenticated and request.endpoint in ['login', 'register'] %}
+                <nav aria-label="Account" style="margin-bottom: 1rem;">
+                    <a href="{{ url_for('login') }}">Log in</a>
+                    |
+                    <a href="{{ url_for('register') }}">Create account</a>
+                </nav>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+
+            <footer class="site-foot">
+                MailFlow Studio · {{ year }}
+            </footer>
+        </main>
+    </div>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+</body>
+</html>

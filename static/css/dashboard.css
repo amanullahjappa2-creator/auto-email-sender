@@ -1,0 +1,131 @@
+/* MailFlow Studio - dashboard.css
+   Dashboard-only styles: the 7-day chart, the last-email row and the
+   getting-started checklist. Uses the variables from app.css, so light and
+   dark themes both work. */
+
+/* ---------- Last 7 days ---------- */
+.week { padding: 18px 22px 6px; }
+
+.week-legend {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.week-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.week-legend .dot { display: inline-block; }
+
+.week-chart { height: 150px; border-bottom: 1px solid var(--line); }
+.week-chart svg { display: block; width: 100%; height: 100%; }
+.bar-sent { fill: var(--green); }
+.bar-failed { fill: var(--red); }
+
+.week-labels {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin: 0;
+  padding: 10px 0 12px;
+  list-style: none;
+  text-align: center;
+}
+
+.week-labels li { display: grid; gap: 2px; }
+.wk-count { font: 650 16px/1.2 var(--font-display); }
+.wk-day { color: var(--muted); font-size: 12.5px; }
+.week-labels .is-today .wk-day { color: var(--accent); font-weight: 600; }
+
+/* ---------- Last email row ---------- */
+.last-mail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.lm-who { display: grid; gap: 2px; min-width: 0; }
+.lm-label { color: var(--muted); font-size: 13px; }
+.lm-who strong { font-size: 14.5px; font-weight: 600; overflow-wrap: anywhere; }
+.lm-who .muted { color: var(--muted); font-size: 13.5px; overflow-wrap: anywhere; }
+
+.lm-meta { display: grid; justify-items: end; gap: 6px; flex-shrink: 0; font-size: 13px; }
+
+/* Status colours for anything that is not sent / failed / scheduled */
+.badge-other { --c: var(--muted); }
+
+/* ---------- Getting started checklist ---------- */
+.checklist .step-no { font-size: 14px; }
+
+.checklist .is-done .step-no {
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+  color: var(--green);
+}
+
+.checklist p a { font-weight: 600; text-decoration: underline; text-underline-offset: 3px; color: var(--accent); }
+
+@media (max-width: 640px) {
+  .week { padding: 16px 16px 4px; }
+  .week-chart { height: 120px; }
+  .last-mail { flex-direction: column; align-items: flex-start; padding: 14px 16px; }
+  .lm-meta { grid-auto-flow: column; justify-items: start; align-items: center; gap: 10px; }
+}
+
+/* ---------- Hero date and live clock ---------- */
+.hero-date {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 14px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.hero-date .icon { width: 15px; height: 15px; color: var(--accent); }
+.hero-date time { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+.hero-date .zone { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; }
+
+/* ---------- Delivery ring ---------- */
+.delivery {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ring-wrap { position: relative; width: 104px; height: 104px; flex-shrink: 0; }
+.ring { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 3.4; }
+.ring-track { stroke: var(--line); }
+.ring-fill { stroke: var(--green); stroke-linecap: round; }
+.ring-fill.is-low { stroke: var(--red); }
+
+.ring-num {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.ring-num strong { font: 700 24px/1.1 var(--font-display); letter-spacing: -0.02em; }
+.ring-num span { color: var(--muted); font-size: 12px; }
+
+.ring-note { font-size: 14px; line-height: 1.5; }
+.ring-note .muted { display: block; margin-top: 4px; color: var(--muted); font-size: 12.5px; }
+
+@media (max-width: 640px) {
+  .delivery { padding: 16px; gap: 16px; }
+  .ring-wrap { width: 88px; height: 88px; }
+}

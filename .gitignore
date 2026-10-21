@@ -1,0 +1,4 @@
+.env
+sent_log.csv
+__pycache__/
+*.pdf

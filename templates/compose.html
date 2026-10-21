@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Compose email - MailFlow Studio{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/compose.css') }}">
+  <script src="{{ url_for('static', filename='js/compose.js') }}" defer></script>
+{% endblock %}
+
+{# Shows the error message under a field, when there is one #}
+{% macro field_error(name) %}
+  {% if field_errors.get(name) %}
+    <p class="error-text" id="{{ name }}-error">
+      <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+      <span>{{ field_errors[name] }}</span>
+    </p>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+{% include "_account_icons.html" %}
+<div class="compose">
+
+  <header class="compose-head">
+    <div>
+      <h1>Compose email</h1>
+      <p>Write your message, preview it, then confirm.</p>
+    </div>
+    {# Only yes/no about the saved App Password is used here, never the password itself #}
+    {% if current_user.mail_address and current_user.encrypted_app_password %}
+      <span class="status-pill">
+        <svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>
+        Sending from {{ current_user.mail_address }}
+      </span>
+    {% else %}
+      <a class="status-pill status-pill-warn" href="{{ url_for('settings') }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+        Connect your Gmail account in Settings
+      </a>
+    {% endif %}
+  </header>
+
+  {# Messages from the server, such as "The mail server accepted all 2 message(s)." #}
+  {% include "_flash.html" %}
+
+  {% if errors %}
+  <div class="notice notice-error" id="error-summary" role="alert" tabindex="-1">
+    <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+    <div>
+      <strong>{{ "This needs fixing before you continue" if errors|length == 1 else "These need fixing before you continue" }}</strong>
+      <ul>
+        {% for field, message in errors %}
+          <li>{% if field != "form" %}<a href="#{{ field }}">{{ message }}</a>{% else %}{{ message }}{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if notice %}
+  <div class="notice notice-info" role="status">
+    <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+    <div>
+      <strong>{{ notice }}</strong>
+    </div>
+  </div>
+  {% endif %}
+
+  <form class="compose-grid" id="compose-form" method="post" action="{{ url_for('compose') }}"
+        novalidate data-previewed="{{ 'true' if preview else 'false' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {# ---------- Write ---------- #}
+    <section class="panel composer" aria-labelledby="write-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="write-title">Message</h2>
+          <p>Who it goes to, and what it says.</p>
+        </div>
+      </div>
+
+      <div class="panel-body">
+        <div class="field{% if field_errors.recipient %} has-error{% endif %}">
+          <label for="recipient">To</label>
+          <input class="input" id="recipient" name="recipient" type="text" inputmode="email"
+                 autocomplete="off" spellcheck="false" required
+                 placeholder="admissions@university.edu"
+                 value="{{ form.recipient }}"
+                 aria-describedby="recipient-hint{% if field_errors.recipient %} recipient-error{% endif %}"
+                 {% if field_errors.recipient %}aria-invalid="true"{% endif %}>
+          <p class="hint" id="recipient-hint">Separate several addresses with commas. Each person gets their own copy and never sees the others.</p>
+          {{ field_error("recipient") }}
+        </div>
+
+        <div class="field{% if field_errors.subject %} has-error{% endif %}">
+          <div class="label-row">
+            <label for="subject">Subject</label>
+            <span class="count" id="subject-count" aria-hidden="true" data-max="{{ limits.subject }}">{{ form.subject|length }}/{{ limits.subject }}</span>
+          </div>
+          <input class="input" id="subject" name="subject" type="text" required
+                 maxlength="{{ limits.subject }}" autocomplete="off"
+                 placeholder="Inquiry about the MSc in Data Science"
+                 value="{{ form.subject }}"
+                 {% if field_errors.subject %}aria-invalid="true" aria-describedby="subject-error"{% endif %}>
+          {{ field_error("subject") }}
+        </div>
+
+        <div class="field{% if field_errors.body %} has-error{% endif %}">
+          <div class="label-row">
+            <label for="body">Message</label>
+            <span class="count" id="body-count" aria-hidden="true" data-max="{{ limits.body }}">{{ form.body|length }}/{{ limits.body }}</span>
+          </div>
+          <textarea class="input" id="body" name="body" rows="12" required
+                    maxlength="{{ limits.body }}"
+                    placeholder="Dear Admissions Team,"
+                    {% if field_errors.body %}aria-invalid="true" aria-describedby="body-error"{% endif %}>{{ form.body }}</textarea>
+          {{ field_error("body") }}
+        </div>
+      </div>
+
+      <div class="send-area">
+        <div class="field{% if field_errors.confirmed %} has-error{% endif %}">
+          <label class="check" for="confirmed">
+            <input type="checkbox" id="confirmed" name="confirmed" value="yes"
+                   {% if form.confirmed %}checked{% endif %}
+                   {% if field_errors.confirmed %}aria-invalid="true" aria-describedby="confirmed-error"{% endif %}>
+            <span>I have checked the recipients and the message.</span>
+          </label>
+          {{ field_error("confirmed") }}
+        </div>
+
+        <div class="send-actions">
+          {# Preview is first in the page so pressing Enter in a field previews, never sends #}
+          <button class="btn btn-quiet" type="submit" name="action" value="preview">
+            <svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>Preview email
+          </button>
+          <button class="btn btn-primary" type="submit" name="action" value="send" id="send-btn"
+                  {% if not preview %}disabled{% endif %}>
+            <svg class="icon" aria-hidden="true"><use href="#i-send"/></svg><span id="send-label">Confirm &amp; send</span>
+          </button>
+        </div>
+
+        <p class="send-hint" id="send-hint" aria-live="polite">
+          Confirm &amp; send turns on after you preview the email and tick the box. It sends a separate email to each recipient from your Gmail account.
+        </p>
+      </div>
+    </section>
+
+    {# ---------- Preview ---------- #}
+    <section class="panel preview" id="preview-panel" aria-labelledby="preview-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="preview-title">Preview</h2>
+          <p>How the email reads to each person.</p>
+        </div>
+        <span class="state" id="preview-state"{% if not preview %} hidden{% endif %}>Up to date</span>
+      </div>
+
+      <p class="stale-note" id="stale-note" role="status" hidden>
+        You changed the email after previewing. Preview it again before sending.
+      </p>
+
+      {% if preview %}
+      <div class="preview-body">
+        <article class="mail" aria-label="Email preview">
+          <dl class="mail-meta">
+            <dt>From</dt>
+            <dd>
+              {% if current_user.sender_name %}{{ current_user.sender_name }} <span class="muted">&lt;{{ current_user.mail_address }}&gt;</span>
+              {% else %}{{ current_user.mail_address or "Your Gmail address (add it in Settings)" }}{% endif %}
+            </dd>
+            <dt>To</dt>
+            <dd>
+              <ul class="chips">
+                {% for address in preview.recipients %}<li class="chip">{{ address }}</li>{% endfor %}
+              </ul>
+            </dd>
+            <dt>Subject</dt>
+            <dd class="mail-subject">{{ preview.subject }}</dd>
+          </dl>
+          <div class="mail-body">{{ preview.body }}</div>
+        </article>
+
+        <ul class="facts">
+          <li>
+            {% if preview.count == 1 %}1 email will be sent.
+            {% else %}{{ preview.count }} separate emails will be sent, so recipients cannot see each other.{% endif %}
+          </li>
+          <li>{{ preview.words }} word{{ "" if preview.words == 1 else "s" }} in the message.</li>
+        </ul>
+      </div>
+      {% else %}
+      <div class="empty">
+        <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></span>
+        <h3>Your preview appears here</h3>
+        <p>Fill in the three fields, then select Preview email to see the message as your recipients will.</p>
+      </div>
+      {% endif %}
+    </section>
+  </form>
+</div>
+{% endblock %}

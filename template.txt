@@ -1,0 +1,13 @@
+Dear $contact,
+
+My name is Aman Ullah, and I am a BS Information Technology student at Times University, Multan, Pakistan, with five semesters completed. I am interested in the $program at $university, particularly because of $reason.
+
+My main interests are artificial intelligence and machine learning, and I am working on a final year project, Smart Crop Doctor, a mobile app that detects crop leaf diseases and supports both Urdu and English. I have also served as President of the Times University Student Club and as Class Representative throughout my degree.
+
+I would be grateful if you could tell me about the admission requirements and the scholarship or funding options available for international students. I would be happy to provide my CV for your reference if required.
+
+Thank you for your time.
+
+Kind regards,
+Aman Ullah
+BS Information Technology, Times University, Multan

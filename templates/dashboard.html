@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Overview - MailFlow Studio{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+
+{# The envelope: the one memorable thing on the page #}
+<section class="letter" aria-labelledby="hello">
+  <div class="letter-inner">
+    <div class="letter-copy">
+      <p class="hero-date">
+        <svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg>
+        <span id="today-date">{{ clock.date }}</span>
+        <span class="sep" aria-hidden="true">&middot;</span>
+        <time id="live-clock" data-tz="{{ clock_tz }}">{{ clock.time }}</time>
+        <span class="zone">{{ clock.zone }}</span>
+      </p>
+      <h1 id="hello">{{ greeting }}{% if first_name %}, {{ first_name }}{% endif %}</h1>
+      {% if not setup.account_ready %}
+        <p class="lede">Connect your Gmail account in Settings, then write your first email.</p>
+      {% elif not setup.has_emails %}
+        <p class="lede">No emails have been sent yet. A good first step is a test email to yourself, so you can see exactly how it will look.</p>
+      {% else %}
+        <p class="lede">Here is how the last week went. Write your next message when you are ready.</p>
+      {% endif %}
+      <div class="actions">
+        <a class="btn btn-primary" href="{{ url_for('compose') }}">
+          <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
+        </a>
+        <button class="btn btn-quiet" type="button" data-soon="Contact import is coming soon.">
+          <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>Import contacts
+        </button>
+      </div>
+    </div>
+
+    <svg class="postmark" viewBox="0 0 230 120" role="img" aria-label="Postmark dated {{ post_month }} {{ post_day }}, {{ post_year }}">
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="62" cy="60" r="50"/>
+        <circle cx="62" cy="60" r="43" stroke-width="1"/>
+        <path d="M124 36c10-8 15 8 25 0s15 8 25 0 15 8 25 0M124 58c10-8 15 8 25 0s15 8 25 0 15 8 25 0M124 80c10-8 15 8 25 0s15 8 25 0 15 8 25 0"/>
+      </g>
+      <text class="pm-day" x="62" y="64" text-anchor="middle">{{ post_day }}</text>
+      <text class="pm-month" x="62" y="84" text-anchor="middle">{{ post_month }} {{ post_year }}</text>
+    </svg>
+  </div>
+</section>
+
+<dl class="stats" aria-label="Email totals">
+  <div class="stat">
+    <dt><span class="dot dot-green"></span>Sent</dt>
+    <dd class="stat-num">{{ stats.sent }}</dd>
+    <dd class="stat-note">{% if stats.sent == 0 %}No emails sent yet{% elif today_sent %}{{ today_sent }} today{% else %}None today{% endif %}</dd>
+  </div>
+  <div class="stat">
+    <dt><span class="dot dot-blue"></span>Scheduled</dt>
+    <dd class="stat-num">{{ stats.scheduled }}</dd>
+    <dd class="stat-note">{{ "Nothing waiting" if stats.scheduled == 0 else "Waiting for their time" }}</dd>
+  </div>
+  <div class="stat">
+    <dt><span class="dot dot-ink"></span>Contacts</dt>
+    <dd class="stat-num">{{ stats.contacts }}</dd>
+    <dd class="stat-note">{{ "Nobody emailed yet" if stats.contacts == 0 else "People you have emailed" }}</dd>
+  </div>
+  <div class="stat">
+    <dt><span class="dot dot-red"></span>Failed</dt>
+    <dd class="stat-num">{{ stats.failed }}</dd>
+    <dd class="stat-note">{{ "Nothing to fix" if stats.failed == 0 else "Needs your attention" }}</dd>
+  </div>
+</dl>
+
+<div class="lower">
+
+  {# ---------- Last 7 days (replaces the old Recent activity list; History has the full list) ---------- #}
+  <section class="panel" aria-labelledby="week-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="week-title">Last 7 days</h2>
+        <p>
+          {% if week.total == 0 %}No emails in the last 7 days.
+          {% elif week.total == 1 %}1 email in the last 7 days.
+          {% else %}{{ week.total }} emails in the last 7 days.{% endif %}
+        </p>
+      </div>
+      <a class="link-btn" href="{{ url_for('history') }}">Open history</a>
+    </div>
+
+    {% if last_email or week.total %}
+    <div class="week">
+      <div class="week-legend" aria-hidden="true">
+        <span><i class="dot dot-green"></i>Sent</span>
+        <span><i class="dot dot-red"></i>Failed</span>
+      </div>
+
+      <div class="week-chart">
+        <svg viewBox="0 0 70 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          {% for d in week.days %}
+            {% if d.sent %}<rect class="bar-sent" x="{{ d.x }}" y="{{ d.sent_y }}" width="3.2" height="{{ d.sent_h }}"/>{% endif %}
+            {% if d.failed %}<rect class="bar-failed" x="{{ d.x }}" y="{{ d.failed_y }}" width="3.2" height="{{ d.failed_h }}"/>{% endif %}
+          {% endfor %}
+        </svg>
+      </div>
+
+      <ul class="week-labels">
+        {% for d in week.days %}
+        <li{% if d.is_today %} class="is-today"{% endif %}>
+          <span class="wk-count">{{ d.total }}</span>
+          <span class="wk-day">{{ "Today" if d.is_today else d.label }}</span>
+          <span class="sr-only">, {{ d.full }}: {{ d.sent }} sent, {{ d.failed }} failed</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <div class="empty">
+      <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-mail"/></svg></span>
+      <h3>Nothing sent yet</h3>
+      <p>Once you send emails, you will see how many went out each day, and which ones failed.</p>
+      <a class="btn btn-quiet" href="{{ url_for('compose') }}">Compose email</a>
+    </div>
+    {% endif %}
+
+    {% if last_email %}
+    {% set st = last_email.status|lower %}
+    {% set kind = st if st in ("sent", "failed", "scheduled") else "other" %}
+    <div class="last-mail">
+      <div class="lm-who">
+        <span class="lm-label">Last email</span>
+        <strong>{{ last_email.recipient }}</strong>
+        <span class="muted">{{ last_email.subject }}</span>
+      </div>
+      <div class="lm-meta">
+        <span class="badge badge-{{ kind }}">{{ last_email.status|capitalize }}</span>
+        {% if last_time %}
+          <time class="muted" datetime="{{ last_time.isoformat() }}">{{ last_time.strftime("%d %b, %I:%M %p") }}</time>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  {# ---------- Getting started: ticks off by itself from your real account data ---------- #}
+  <section class="panel" aria-labelledby="ready-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="ready-title">{{ "Delivery" if setup.account_ready and setup.has_emails else "Get started" }}</h2>
+        <p>{{ "How many were accepted by the mail server." if setup.account_ready and setup.has_emails else "Two steps to your first email." }}</p>
+      </div>
+    </div>
+
+    {% if rate is not none %}
+    <div class="delivery">
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 36 36" role="img" aria-label="{{ rate }} percent of emails were accepted by the mail server">
+          <circle class="ring-track" cx="18" cy="18" r="15.9155"/>
+          <circle class="ring-fill{% if rate < 50 %} is-low{% endif %}" cx="18" cy="18" r="15.9155" stroke-dasharray="{{ rate }} 100"/>
+        </svg>
+        <div class="ring-num"><strong>{{ rate }}%</strong><span>accepted</span></div>
+      </div>
+      <p class="ring-note">
+        {{ stats.sent }} of {{ stats.sent + stats.failed }} emails were accepted.
+        <span class="muted">Accepted means the mail server took the message. It is not a promise that it reached the inbox.</span>
+      </p>
+    </div>
+    {% endif %}
+    <ol class="steps checklist">
+      <li{% if setup.account_ready %} class="is-done"{% endif %}>
+        <span class="step-no" aria-hidden="true">{{ "✓" if setup.account_ready else "1" }}</span>
+        <div>
+          <strong>Connect your Gmail account{% if setup.account_ready %}<span class="sr-only"> (done)</span>{% endif %}</strong>
+          {% if setup.account_ready %}
+            <p>Sending from {{ setup.mail_address }}. <a href="{{ url_for('settings') }}">Change settings</a></p>
+          {% else %}
+            <p>Add your Gmail address and App Password in Settings. <a href="{{ url_for('settings') }}">Open settings</a></p>
+          {% endif %}
+        </div>
+      </li>
+      <li{% if setup.has_emails %} class="is-done"{% endif %}>
+        <span class="step-no" aria-hidden="true">{{ "✓" if setup.has_emails else "2" }}</span>
+        <div>
+          <strong>Send your first email{% if setup.has_emails %}<span class="sr-only"> (done)</span>{% endif %}</strong>
+          {% if setup.has_emails %}
+            <p>You have started sending. <a href="{{ url_for('compose') }}">Write another</a></p>
+          {% else %}
+            <p>Write it in Compose, preview it, then confirm. Try your own address first. <a href="{{ url_for('compose') }}">Open Compose</a></p>
+          {% endif %}
+        </div>
+      </li>
+    </ol>
+    <p class="panel-note">
+      <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+      <span>History shows which emails the mail server accepted and which failed.</span>
+    </p>
+  </section>
+</div>
+
+{% endblock %}

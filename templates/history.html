@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Email history | MailFlow Studio{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/history.css') }}">
+{% endblock %}
+
+{% block content %}
+{# Counts come only from the rows in `logs`, so they match the table exactly. #}
+{% set rows = logs or [] %}
+{% set ns = namespace(sent=0, failed=0) %}
+{% for item in rows %}
+  {% set st = item.status|lower %}
+  {% if st == "sent" %}{% set ns.sent = ns.sent + 1 %}
+  {% elif st == "failed" %}{% set ns.failed = ns.failed + 1 %}{% endif %}
+{% endfor %}
+
+<div class="history">
+  <header class="hist-head">
+    <div>
+      <h1>Email history</h1>
+      <p>Recent email activity for your account.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('compose') }}">
+      <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
+    </a>
+  </header>
+
+  {% if rows %}
+  <dl class="stats hist-stats" aria-label="Totals for the emails listed below">
+    <div class="stat">
+      <dt><span class="dot dot-ink"></span>Listed</dt>
+      <dd class="stat-num">{{ rows|length }}</dd>
+      <dd class="stat-note">In the table below</dd>
+    </div>
+    <div class="stat">
+      <dt><span class="dot dot-green"></span>Sent</dt>
+      <dd class="stat-num">{{ ns.sent }}</dd>
+      <dd class="stat-note">Marked as sent</dd>
+    </div>
+    <div class="stat">
+      <dt><span class="dot dot-red"></span>Failed</dt>
+      <dd class="stat-num">{{ ns.failed }}</dd>
+      <dd class="stat-note">{{ "None failed" if ns.failed == 0 else "Needs your attention" }}</dd>
+    </div>
+  </dl>
+
+  <section class="panel" aria-labelledby="activity-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="activity-title">Recent emails</h2>
+        <p>One row for each email.</p>
+      </div>
+    </div>
+
+    {# Scrolls sideways on small screens. tabindex lets keyboard users scroll it. #}
+    <div class="hist-scroll" role="region" aria-label="Email history table" tabindex="0">
+      <table class="table hist-table">
+        <caption class="sr-only">Your recent email activity</caption>
+        <thead>
+          <tr>
+            <th scope="col">Recipient</th>
+            <th scope="col">Subject</th>
+            <th scope="col">Status</th>
+            <th scope="col">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in rows %}
+            {% set st = item.status|lower %}
+            {% set kind = st if st in ("sent", "failed", "scheduled") else "other" %}
+            <tr>
+              <td class="hist-recipient">{{ item.recipient }}</td>
+              <td>{{ item.subject }}</td>
+              <td class="col-nowrap"><span class="badge badge-{{ kind }}">{{ item.status|capitalize }}</span></td>
+              <td class="col-nowrap muted">
+                {% if item.sent_at %}
+                  <time datetime="{{ item.sent_at.isoformat() }}">{{ item.sent_at.strftime("%d %b %Y, %H:%M") }}</time>
+                {% else %}
+                  <span aria-label="No date recorded">&mdash;</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% else %}
+  <section class="panel" aria-labelledby="empty-title">
+    <div class="empty">
+      <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg></span>
+      <h3 id="empty-title">No email activity yet</h3>
+      <p>Every email you send appears here, with its status, so you can see what went out and what failed.</p>
+      <a class="btn btn-primary" href="{{ url_for('compose') }}">
+        <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
+      </a>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
