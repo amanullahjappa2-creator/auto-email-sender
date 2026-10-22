@@ -1,11 +1,15 @@
-/* Applies a saved theme choice before the page paints, so it does not flash. */
+
+/* Apply the saved theme before the page renders to prevent flashing. */
 (function () {
+  "use strict";
+
   try {
-    var saved = localStorage.getItem("mf-theme");
-    if (saved === "light" || saved === "dark") {
-      document.documentElement.setAttribute("data-theme", saved);
+    var savedTheme = localStorage.getItem("mf-theme");
+
+    if (savedTheme === "light" || savedTheme === "dark") {
+      document.documentElement.setAttribute("data-theme", savedTheme);
     }
-  } catch (e) {
-    /* Storage can be blocked. The page then follows the system theme. */
+  } catch (error) {
+    // If storage is unavailable, fall back to the system theme.
   }
 })();
