@@ -1,0 +1,42 @@
+/* MailFlow Studio - templates.css
+   The saved templates page. Uses the variables and shared classes from
+   app.css and compose.css (.field, .input, .panel, .btn, .notice). */
+
+.tpl-page [hidden] { display: none !important; }
+
+.tpl-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.tpl-list { margin: 0; padding: 0; list-style: none; }
+
+.tpl-item {
+  display: grid;
+  gap: 10px;
+  padding: 16px 22px;
+  border-top: 1px solid var(--line);
+}
+
+.tpl-item:first-child { border-top: 0; }
+
+.tpl-item h3 { font: 650 16px/1.3 var(--font-display); overflow-wrap: anywhere; }
+.tpl-subject { color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+.tpl-snippet { color: var(--muted); font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.tpl-meta { color: var(--muted); font-size: 12.5px; }
+
+.tpl-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tpl-actions form { margin: 0; }
+
+.btn-danger-quiet { color: var(--red); }
+.btn-danger-quiet:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
+
+@media (max-width: 980px) {
+  .tpl-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .tpl-item { padding: 14px 18px; }
+}

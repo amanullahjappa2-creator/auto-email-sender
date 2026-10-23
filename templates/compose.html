@@ -25,7 +25,7 @@
   <header class="compose-head">
     <div>
       <h1>Compose email</h1>
-      <p>Write your message, preview it, then confirm.</p>
+      <p>Write your message, add files if you need them, preview it, then confirm.</p>
     </div>
     {# Only yes/no about the saved App Password is used here, never the password itself #}
     {% if current_user.mail_address and current_user.encrypted_app_password %}
@@ -67,9 +67,28 @@
   </div>
   {% endif %}
 
+  {# ---------- Start from a saved template (a separate GET form: nothing is sent) ---------- #}
+  <form class="tpl-bar" method="get" action="{{ url_for('compose') }}">
+    <label for="tpl-select">Start from a template</label>
+    {% if templates %}
+      <select class="input" id="tpl-select" name="template">
+        {% for t in templates %}
+          <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-quiet" type="submit">Load template</button>
+    {% else %}
+      <span class="hint">You have no templates yet. Write an email below, then use "Save as template".</span>
+    {% endif %}
+    <a class="link-btn" href="{{ url_for('templates_list') }}">Manage templates</a>
+  </form>
+
   <form class="compose-grid" id="compose-form" method="post" action="{{ url_for('compose') }}"
-        novalidate data-previewed="{{ 'true' if preview else 'false' }}">
+        enctype="multipart/form-data"
+        novalidate data-previewed="{{ 'true' if preview else 'false' }}"
+        data-max-files="{{ limits.max_files }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="draft_id" value="{{ draft_id }}">
 
     {# ---------- Write ---------- #}
     <section class="panel composer" aria-labelledby="write-title">
@@ -81,16 +100,30 @@
       </div>
 
       <div class="panel-body">
-        <div class="field{% if field_errors.recipient %} has-error{% endif %}">
-          <label for="recipient">To</label>
-          <input class="input" id="recipient" name="recipient" type="text" inputmode="email"
-                 autocomplete="off" spellcheck="false" required
-                 placeholder="admissions@university.edu"
-                 value="{{ form.recipient }}"
-                 aria-describedby="recipient-hint{% if field_errors.recipient %} recipient-error{% endif %}"
-                 {% if field_errors.recipient %}aria-invalid="true"{% endif %}>
-          <p class="hint" id="recipient-hint">Separate several addresses with commas. Each person gets their own copy and never sees the others.</p>
+        <div class="field{% if field_errors.recipient or field_errors.recipient_file %} has-error{% endif %}">
+          <div class="label-row">
+            <label for="recipient">To</label>
+            <span class="count" id="to-count" aria-live="polite" data-max="{{ limits.max_recipients }}"></span>
+          </div>
+          <textarea class="input input-list" id="recipient" name="recipient" rows="3"
+                    autocomplete="off" spellcheck="false" required
+                    placeholder="admissions@university.edu, scholarships@college.edu"
+                    aria-describedby="recipient-hint{% if field_errors.recipient %} recipient-error{% endif %}"
+                    {% if field_errors.recipient %}aria-invalid="true"{% endif %}>{{ form.recipient }}</textarea>
+          <p class="hint" id="recipient-hint">
+            Up to {{ limits.max_recipients }} addresses, separated by commas or new lines. Each person gets their own copy and never sees the others.
+          </p>
           {{ field_error("recipient") }}
+
+          <div class="file-pick">
+            <label class="file-label" for="recipient_file">
+              <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>Import addresses from a file
+            </label>
+            <input class="file-input" id="recipient_file" name="recipient_file" type="file" accept=".csv,.txt"
+                   aria-describedby="recipient_file-hint{% if field_errors.recipient_file %} recipient_file-error{% endif %}">
+            <p class="hint" id="recipient_file-hint">A .csv or .txt list. The addresses are added to the box when you select Preview email.</p>
+            {{ field_error("recipient_file") }}
+          </div>
         </div>
 
         <div class="field{% if field_errors.subject %} has-error{% endif %}">
@@ -117,6 +150,44 @@
                     {% if field_errors.body %}aria-invalid="true" aria-describedby="body-error"{% endif %}>{{ form.body }}</textarea>
           {{ field_error("body") }}
         </div>
+
+        {# ---------- Attachments ---------- #}
+        <div class="field{% if field_errors.attachments %} has-error{% endif %}" id="attachments-field">
+          <span class="label-row"><span class="field-title">Attachments</span>
+            <span class="count" id="attach-count" aria-live="polite"></span>
+          </span>
+
+          {% if attachments %}
+          <ul class="file-list" aria-label="Files attached to this email">
+            {% for f in attachments %}
+            <li>
+              <svg class="icon" aria-hidden="true"><use href="#i-paperclip"/></svg>
+              <span class="file-name">{{ f.name }}</span>
+              <span class="file-size">{{ f.size_text }}</span>
+              <label class="file-remove">
+                <input type="checkbox" name="remove_attachment" value="{{ f.stored }}">
+                <span>Remove<span class="sr-only"> {{ f.name }}</span></span>
+              </label>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+
+          <div class="file-pick">
+            <label class="file-label" for="attachments">
+              <svg class="icon" aria-hidden="true"><use href="#i-paperclip"/></svg>{{ "Add more files" if attachments else "Choose files" }}
+            </label>
+            <input class="file-input" id="attachments" name="attachments" type="file" multiple accept="{{ accept }}"
+                   aria-describedby="attachments-hint{% if field_errors.attachments %} attachments-error{% endif %}">
+          </div>
+          <p class="hint" id="attachments-hint">
+            Up to {{ limits.max_files }} files, {{ limits.max_total }} in total. Allowed: {{ limits.allowed }}.
+            Files are added when you select Preview email, and every recipient gets them.
+          </p>
+          {% for field, message in errors if field == "attachments" %}
+            <p class="error-text"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span>{{ message }}</span></p>
+          {% endfor %}
+        </div>
       </div>
 
       <div class="send-area">
@@ -125,13 +196,13 @@
             <input type="checkbox" id="confirmed" name="confirmed" value="yes"
                    {% if form.confirmed %}checked{% endif %}
                    {% if field_errors.confirmed %}aria-invalid="true" aria-describedby="confirmed-error"{% endif %}>
-            <span>I have checked the recipients and the message.</span>
+            <span>I have checked the recipients, the message and the attachments.</span>
           </label>
           {{ field_error("confirmed") }}
         </div>
 
         <div class="send-actions">
-          {# Preview is first in the page so pressing Enter in a field previews, never sends #}
+          {# Preview must stay the FIRST submit button, so pressing Enter in a field previews and never sends #}
           <button class="btn btn-quiet" type="submit" name="action" value="preview">
             <svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>Preview email
           </button>
@@ -144,6 +215,23 @@
         <p class="send-hint" id="send-hint" aria-live="polite">
           Confirm &amp; send turns on after you preview the email and tick the box. It sends a separate email to each recipient from your Gmail account.
         </p>
+
+        {# Saving a template keeps only the subject and message, never the recipients or files #}
+        <details class="save-tpl"{% if field_errors.template_name %} open{% endif %}>
+          <summary><svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg>Save as template</summary>
+          <div class="save-tpl-body">
+            <label for="template_name">Template name</label>
+            <input class="input" id="template_name" name="template_name" type="text"
+                   maxlength="80" autocomplete="off" placeholder="Scholarship inquiry"
+                   value="{{ form.template_name }}"
+                   {% if field_errors.template_name %}aria-invalid="true" aria-describedby="template_name-error"{% endif %}>
+            {{ field_error("template_name") }}
+            <p class="hint">Saves the current subject and message. Using a name you already have updates that template.</p>
+            <button class="btn btn-quiet" type="submit" name="action" value="save_template">
+              <svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg>Save template
+            </button>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -178,6 +266,16 @@
             </dd>
             <dt>Subject</dt>
             <dd class="mail-subject">{{ preview.subject }}</dd>
+            {% if preview.attachments %}
+            <dt>Files</dt>
+            <dd>
+              <ul class="chips">
+                {% for f in preview.attachments %}
+                  <li class="chip chip-file"><svg class="icon" aria-hidden="true"><use href="#i-paperclip"/></svg>{{ f.name }} <span class="muted">({{ f.size_text }})</span></li>
+                {% endfor %}
+              </ul>
+            </dd>
+            {% endif %}
           </dl>
           <div class="mail-body">{{ preview.body }}</div>
         </article>
@@ -188,13 +286,17 @@
             {% else %}{{ preview.count }} separate emails will be sent, so recipients cannot see each other.{% endif %}
           </li>
           <li>{{ preview.words }} word{{ "" if preview.words == 1 else "s" }} in the message.</li>
+          <li>
+            {% if preview.attachments %}{{ preview.attachments|length }} file{{ "" if preview.attachments|length == 1 else "s" }} attached to each email.
+            {% else %}No attachments.{% endif %}
+          </li>
         </ul>
       </div>
       {% else %}
       <div class="empty">
         <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></span>
         <h3>Your preview appears here</h3>
-        <p>Fill in the three fields, then select Preview email to see the message as your recipients will.</p>
+        <p>Fill in the fields, then select Preview email to see the message as your recipients will.</p>
       </div>
       {% endif %}
     </section>

@@ -1,7 +1,8 @@
 /* MailFlow Studio - Compose page helpers.
-   The server does all the real checking. This file only makes the page
-   easier to use: character counters, the "preview is out of date" warning,
-   and keeping Confirm & send off until it is safe to press. */
+   The server does all the real checking (file types, sizes, addresses).
+   This file only makes the page easier to use: counters, the "preview is
+   out of date" warning, and keeping Confirm & send off until it is safe
+   to press. */
 (function () {
   "use strict";
 
@@ -20,6 +21,11 @@
   var stateBadge = document.getElementById("preview-state");
   var previewPanel = document.getElementById("preview-panel");
   var errorSummary = document.getElementById("error-summary");
+  var attachInput = document.getElementById("attachments");
+  var addressFile = document.getElementById("recipient_file");
+  var attachCount = document.getElementById("attach-count");
+  var toCount = document.getElementById("to-count");
+  var maxFiles = parseInt(form.getAttribute("data-max-files"), 10) || 5;
 
   var previewed = form.getAttribute("data-previewed") === "true";
 
@@ -34,17 +40,26 @@
     body: clean(fields.body.value)
   };
 
+  /* New files, an address file, or a ticked "Remove" only take effect when
+     the page is previewed again, so they also make the preview out of date. */
+  function extrasPending() {
+    if (attachInput && attachInput.files && attachInput.files.length) return true;
+    if (addressFile && addressFile.files && addressFile.files.length) return true;
+    return form.querySelectorAll('input[name="remove_attachment"]:checked').length > 0;
+  }
+
   function isStale() {
     return (
       clean(fields.recipient.value) !== snapshot.recipient ||
       clean(fields.subject.value) !== snapshot.subject ||
-      clean(fields.body.value) !== snapshot.body
+      clean(fields.body.value) !== snapshot.body ||
+      extrasPending()
     );
   }
 
   var HINTS = {
     none: "Confirm & send turns on after you preview the email and tick the box. It sends a separate email to each recipient from your Gmail account.",
-    stale: "Preview the email again to include your latest changes.",
+    stale: "Preview the email again to include your latest changes, files or addresses.",
     unticked: "Tick the box to turn on Confirm & send.",
     ready: "Ready. Confirm & send will email each recipient from your Gmail account."
   };
@@ -81,11 +96,50 @@
   bindCounter(fields.subject, "subject-count");
   bindCounter(fields.body, "body-count");
 
+  /* ---------- Recipient count ---------- */
+  function updateToCount() {
+    if (!toCount) return;
+    var max = parseInt(toCount.getAttribute("data-max"), 10) || 50;
+    var seen = {};
+    var n = 0;
+    fields.recipient.value.split(/[,;\n]+/).forEach(function (item) {
+      var a = item.trim().toLowerCase();
+      if (a && !seen[a]) { seen[a] = true; n += 1; }
+    });
+    toCount.textContent = n ? n + (n === 1 ? " address" : " addresses") + " (max " + max + ")" : "";
+    toCount.classList.toggle("is-over", n > max);
+  }
+
+  /* ---------- Chosen files ---------- */
+  function sizeText(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1048576) return Math.round(bytes / 1024) + " KB";
+    return (bytes / 1048576).toFixed(1) + " MB";
+  }
+
+  function updateAttachCount() {
+    if (!attachCount || !attachInput) return;
+    var files = attachInput.files || [];
+    if (!files.length) { attachCount.textContent = ""; return; }
+    var total = 0;
+    for (var i = 0; i < files.length; i += 1) total += files[i].size;
+    attachCount.textContent = files.length + (files.length === 1 ? " file chosen" : " files chosen") +
+      " (" + sizeText(total) + ")" + (files.length > maxFiles ? " - too many" : "");
+  }
+
   /* ---------- Wire up ---------- */
   Object.keys(fields).forEach(function (name) {
     fields[name].addEventListener("input", refresh);
   });
+  fields.recipient.addEventListener("input", updateToCount);
+  if (attachInput) attachInput.addEventListener("change", function () { updateAttachCount(); refresh(); });
+  if (addressFile) addressFile.addEventListener("change", refresh);
+  form.addEventListener("change", function (event) {
+    if (event.target && event.target.name === "remove_attachment") refresh();
+  });
   confirmBox.addEventListener("change", refresh);
+  updateToCount();
+  updateAttachCount();
   refresh();
 
   /* ---------- Stop accidental double sending ----------
@@ -123,6 +177,7 @@
     sendButton.removeAttribute("aria-busy");
     if (previewButton) previewButton.disabled = false;
     if (sendLabel) sendLabel.textContent = originalLabel;
+    updateAttachCount();
     refresh();
   });
 

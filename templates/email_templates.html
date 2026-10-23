@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Templates - MailFlow Studio{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/compose.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/templates.css') }}">
+{% endblock %}
+
+{% macro field_error(name) %}
+  {% if field_errors.get(name) %}
+    <p class="error-text" id="{{ name }}-error">
+      <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+      <span>{{ field_errors[name] }}</span>
+    </p>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+{% include "_account_icons.html" %}
+<div class="compose tpl-page">
+
+  <header class="compose-head">
+    <div>
+      <h1>Templates</h1>
+      <p>Save the emails you send often, then load one in Compose with a single click.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('compose') }}">
+      <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
+    </a>
+  </header>
+
+  {% include "_flash.html" %}
+
+  {% if errors %}
+  <div class="notice notice-error" id="error-summary" role="alert">
+    <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+    <div>
+      <strong>{{ "This needs fixing before you continue" if errors|length == 1 else "These need fixing before you continue" }}</strong>
+      <ul>
+        {% for field, message in errors %}
+          <li><a href="#{{ field }}">{{ message }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="tpl-grid">
+
+    {# ---------- New template ---------- #}
+    <section class="panel" aria-labelledby="new-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="new-title">New template</h2>
+          <p>Only the subject and message are saved. Never recipients or files.</p>
+        </div>
+      </div>
+      <form class="panel-body" method="post" action="{{ url_for('templates_list') }}" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="field{% if field_errors.template_name %} has-error{% endif %}">
+          <label for="template_name">Template name</label>
+          <input class="input" id="template_name" name="template_name" type="text" required
+                 maxlength="{{ limits.name }}" autocomplete="off" placeholder="Scholarship inquiry"
+                 value="{{ form.template_name }}"
+                 {% if field_errors.template_name %}aria-invalid="true" aria-describedby="template_name-error"{% endif %}>
+          {{ field_error("template_name") }}
+        </div>
+
+        <div class="field{% if field_errors.subject %} has-error{% endif %}">
+          <label for="subject">Subject</label>
+          <input class="input" id="subject" name="subject" type="text" required
+                 maxlength="{{ limits.subject }}" autocomplete="off"
+                 placeholder="Inquiry about the MSc in Data Science"
+                 value="{{ form.subject }}"
+                 {% if field_errors.subject %}aria-invalid="true" aria-describedby="subject-error"{% endif %}>
+          {{ field_error("subject") }}
+        </div>
+
+        <div class="field{% if field_errors.body %} has-error{% endif %}">
+          <label for="body">Message</label>
+          <textarea class="input" id="body" name="body" rows="10" required
+                    maxlength="{{ limits.body }}" placeholder="Dear Admissions Team,"
+                    {% if field_errors.body %}aria-invalid="true" aria-describedby="body-error"{% endif %}>{{ form.body }}</textarea>
+          {{ field_error("body") }}
+        </div>
+
+        <p class="hint">Using a name you already have updates that template. You can keep up to {{ limits.max_templates }}.</p>
+
+        <div class="send-actions">
+          <button class="btn btn-primary" type="submit">
+            <svg class="icon" aria-hidden="true"><use href="#i-bookmark"/></svg>Save template
+          </button>
+        </div>
+      </form>
+    </section>
+
+    {# ---------- Saved templates ---------- #}
+    <section class="panel" aria-labelledby="saved-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="saved-title">Your templates</h2>
+          <p>{{ templates|length }} of {{ limits.max_templates }} saved.</p>
+        </div>
+      </div>
+
+      {% if templates %}
+      <ul class="tpl-list">
+        {% for t in templates %}
+        <li class="tpl-item">
+          <h3>{{ t.name }}</h3>
+          <p class="tpl-subject"><strong>Subject:</strong> {{ t.subject }}</p>
+          <p class="tpl-snippet">{{ t.body|truncate(140, True, "...") }}</p>
+          {% if t.updated_at %}<p class="tpl-meta">Updated {{ t.updated_at|local_time("%d %b %Y") }}</p>{% endif %}
+          <div class="tpl-actions">
+            <a class="btn btn-quiet" href="{{ url_for('compose', template=t.id) }}">
+              <svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>Use in Compose
+            </a>
+            <form method="post" action="{{ url_for('template_delete', template_id=t.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-quiet btn-danger-quiet" type="submit"
+                      aria-label="Delete template {{ t.name }}">
+                <svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>Delete
+              </button>
+            </form>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty">
+        <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg></span>
+        <h3>No templates yet</h3>
+        <p>Save your first one on the left, or from the Compose page with "Save as template".</p>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

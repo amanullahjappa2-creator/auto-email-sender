@@ -34,6 +34,25 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from config import BASE_DIR, INSTANCE_DIR, Config
 from models import db, User, EmailLog
 from security import encrypt_secret, decrypt_secret
+from compose_tools import (
+    ACCEPT_ATTRIBUTE,
+    ALLOWED_LABEL,
+    MAX_FILES,
+    MAX_TOTAL_BYTES,
+    add_files,
+    cleanup_old_drafts,
+    delete_draft,
+    delete_files,
+    draft_dir,
+    extract_addresses,
+    format_size,
+    is_valid_draft_id,
+    list_files,
+    new_draft_id,
+    read_address_file,
+    read_attachments,
+)
+from template_models import EmailTemplate
 
 
 # Load local environment settings before initializing the application.
@@ -44,8 +63,8 @@ app = Flask(__name__)
 app.config.from_object(Config)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
-# Total request size limit. Attachment-specific validation will be added
-# when the attachment upload workflow is implemented.
+# Total request size limit. The attachment rules themselves (file count,
+# 10 MB total, allowed types) are enforced in compose_tools.py.
 app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
 app.config["SESSION_COOKIE_SECURE"] = (
     os.environ.get("COOKIE_SECURE", "0") == "1"
@@ -64,6 +83,8 @@ MAX_RECIPIENTS = 50
 MAX_SUBJECT = 200
 MAX_BODY = 20_000
 MAX_RECIPIENT_FIELD = 5_000
+MAX_TEMPLATES = 50
+MAX_TEMPLATE_NAME = 80
 
 EMAIL_RE = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+"
@@ -346,7 +367,7 @@ def save_email_log(recipient, subject, status):
     )
 
 
-def send_compose_emails(recipients, subject, body):
+def send_compose_emails(recipients, subject, body, attachments=()):
     """Send individual messages using this user's own SMTP credentials."""
     user = db.session.get(User, current_user.id)
 
@@ -401,6 +422,14 @@ def send_compose_emails(recipients, subject, body):
             message["To"] = recipient
             message["Subject"] = subject
             message.set_content(body)
+
+            for file_name, data, maintype, subtype in attachments:
+                message.add_attachment(
+                    data,
+                    maintype=maintype,
+                    subtype=subtype,
+                    filename=file_name,
+                )
 
             try:
                 refused = server.send_message(message)
@@ -617,6 +646,94 @@ def dashboard():
     )
 
 
+# ---------------- Saved templates ----------------
+
+def clean_body(text):
+    return (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+
+
+def user_templates():
+    """The logged-in user's templates. Always filtered by user id."""
+    return (
+        EmailTemplate.query.filter_by(user_id=current_user.id)
+        .order_by(EmailTemplate.name)
+        .all()
+    )
+
+
+def check_template(name, subject, body):
+    errors = []
+
+    if not name:
+        errors.append(("template_name", "Give the template a name."))
+    elif "\n" in name or "\r" in name:
+        errors.append(("template_name", "The name must be a single line."))
+    elif len(name) > MAX_TEMPLATE_NAME:
+        errors.append(
+            ("template_name", f"Keep the name under {MAX_TEMPLATE_NAME} characters.")
+        )
+
+    if not subject:
+        errors.append(("subject", "Add a subject."))
+    elif "\n" in subject or "\r" in subject:
+        errors.append(("subject", "The subject must be a single line."))
+    elif len(subject) > MAX_SUBJECT:
+        errors.append(("subject", f"Keep the subject under {MAX_SUBJECT} characters."))
+
+    if not body:
+        errors.append(("body", "Write a message."))
+    elif len(body) > MAX_BODY:
+        errors.append(("body", f"The message is too long. Maximum: {MAX_BODY:,} characters."))
+
+    return errors
+
+
+def save_template(name, subject, body):
+    """Create a template, or update the one that already has this name.
+
+    Returns (template, created).
+    """
+    templates = user_templates()
+
+    for existing in templates:
+        if existing.name.casefold() == name.casefold():
+            existing.name = name
+            existing.subject = subject
+            existing.body = body
+            db.session.commit()
+            return existing, False
+
+    if len(templates) >= MAX_TEMPLATES:
+        raise ValueError(
+            f"You can keep up to {MAX_TEMPLATES} templates. Delete one first."
+        )
+
+    template = EmailTemplate(
+        user_id=current_user.id,
+        name=name,
+        subject=subject,
+        body=body,
+    )
+    db.session.add(template)
+    db.session.commit()
+    return template, True
+
+
+def merge_addresses(current_text, extra):
+    """Add addresses to the To box without repeating any. Returns (text, added)."""
+    existing = [a.strip() for a in re.split(r"[,;\n]+", current_text) if a.strip()]
+    seen = {a.casefold() for a in existing}
+    added = 0
+
+    for address in extra:
+        if address.casefold() not in seen:
+            seen.add(address.casefold())
+            existing.append(address)
+            added += 1
+
+    return ", ".join(existing), added
+
+
 # ---------------- Compose ----------------
 
 @app.route("/compose", methods=["GET", "POST"])
@@ -627,52 +744,137 @@ def compose():
         "subject": "",
         "body": "",
         "confirmed": False,
+        "template_name": "",
     }
     errors = []
     preview = None
     notice = None
     notice_type = "info"
-    status_code = 200
+    draft_id = ""
+
+    # Abandoned attachment drafts (older than a day) are removed.
+    cleanup_old_drafts(INSTANCE_DIR, current_user.id)
 
     if request.method == "GET":
-        notice = request.args.get("notice")
         # No email is sent by a GET request.
+        template_id = request.args.get("template", type=int)
+        if template_id:
+            chosen = EmailTemplate.query.filter_by(
+                id=template_id,
+                user_id=current_user.id,
+            ).first()
+            if chosen:
+                form["subject"] = chosen.subject
+                form["body"] = chosen.body
+                notice = f'Template "{chosen.name}" loaded. Add the recipients, then preview.'
+            else:
+                notice = "That template could not be found."
 
     if request.method == "POST":
         action = request.form.get("action", "")
         form["recipient"] = request.form.get("recipient", "").strip()
         form["subject"] = request.form.get("subject", "").strip()
-        form["body"] = (
-            request.form.get("body", "")
-            .replace("\r\n", "\n")
-            .replace("\r", "\n")
-            .strip()
-        )
+        form["body"] = clean_body(request.form.get("body", ""))
         form["confirmed"] = request.form.get("confirmed") == "yes"
+        form["template_name"] = request.form.get("template_name", "").strip()
 
-        if action not in ("preview", "send"):
+        draft_id = request.form.get("draft_id", "")
+        if not is_valid_draft_id(draft_id):
+            draft_id = ""
+
+        if action not in ("preview", "send", "save_template"):
             errors.append(("form", "Please use a valid form button."))
+
+        elif action == "save_template":
+            errors = check_template(
+                form["template_name"], form["subject"], form["body"]
+            )
+            if not errors:
+                try:
+                    saved, created = save_template(
+                        form["template_name"], form["subject"], form["body"]
+                    )
+                except ValueError as exc:
+                    errors.append(("template_name", str(exc)))
+                else:
+                    flash(
+                        f'Template "{saved.name}" '
+                        f'{"saved" if created else "updated"}.',
+                        "success",
+                    )
+                    return redirect(url_for("compose", template=saved.id))
+
         else:
-            recipients, errors = check_compose(form)
+            # True when attachments or addresses changed in this request.
+            # Such changes must be previewed again before anything is sent.
+            changed = False
+            folder = draft_dir(INSTANCE_DIR, current_user.id, draft_id) if draft_id else None
+
+            removals = request.form.getlist("remove_attachment")
+            if removals and folder and delete_files(folder, removals):
+                changed = True
+
+            new_files = [f for f in request.files.getlist("attachments") if f and f.filename]
+            if new_files:
+                if not draft_id:
+                    draft_id = new_draft_id()
+                    folder = draft_dir(INSTANCE_DIR, current_user.id, draft_id)
+                saved_count, problems = add_files(folder, new_files)
+                changed = changed or saved_count > 0
+                for problem in problems:
+                    errors.append(("attachments", problem))
+
+            address_file = request.files.get("recipient_file")
+            if address_file and address_file.filename:
+                text, problem = read_address_file(address_file)
+                if problem:
+                    errors.append(("recipient_file", problem))
+                else:
+                    found, skipped = extract_addresses(text, validate_email_address)
+                    form["recipient"], added = merge_addresses(form["recipient"], found)
+                    changed = changed or added > 0
+                    notice = (
+                        f"Added {added} address(es) from {address_file.filename[:60]}."
+                        if added
+                        else "No new email addresses were found in that file."
+                    )
+                    if skipped:
+                        notice += f" {skipped} entry(ies) that did not look like addresses were skipped."
+
+            recipients, more_errors = check_compose(form)
+            errors.extend(more_errors)
 
             if action == "send" and not form["confirmed"]:
                 errors.append(("confirmed", "Confirm that you checked the email."))
 
+            if action == "send" and changed:
+                errors.append(
+                    (
+                        "form",
+                        "You changed the attachments or the address list. "
+                        "Select Preview email again before sending.",
+                    )
+                )
+
             if not errors:
+                files = list_files(folder) if folder else []
                 preview = {
                     "recipients": recipients,
                     "count": len(recipients),
                     "subject": form["subject"],
                     "body": form["body"],
                     "words": len(form["body"].split()),
+                    "attachments": files,
                 }
 
                 if action == "send":
                     try:
+                        attachment_data = read_attachments(folder) if folder else []
                         results = send_compose_emails(
                             recipients,
                             form["subject"],
                             form["body"],
+                            attachment_data,
                         )
                         sent_count = sum(status == "sent" for _, status in results)
                         failed_count = sum(status == "failed" for _, status in results)
@@ -693,6 +895,10 @@ def compose():
                                 "No message was confirmed as sent. Check your settings.",
                                 "error",
                             )
+
+                        # The attachment copies are no longer needed.
+                        if sent_count and folder:
+                            delete_draft(folder)
                     except ValueError as exc:
                         db.session.rollback()
                         flash(str(exc), "error")
@@ -703,6 +909,12 @@ def compose():
     for field, message in errors:
         field_errors.setdefault(field, message)
 
+    attachments = (
+        list_files(draft_dir(INSTANCE_DIR, current_user.id, draft_id))
+        if draft_id
+        else []
+    )
+
     return render_template(
         "compose.html",
         form=form,
@@ -711,8 +923,86 @@ def compose():
         preview=preview,
         notice=notice,
         notice_type=notice_type,
-        limits={"subject": MAX_SUBJECT, "body": MAX_BODY},
+        draft_id=draft_id,
+        attachments=attachments,
+        templates=user_templates(),
+        accept=ACCEPT_ATTRIBUTE,
+        limits={
+            "subject": MAX_SUBJECT,
+            "body": MAX_BODY,
+            "max_files": MAX_FILES,
+            "max_total": format_size(MAX_TOTAL_BYTES),
+            "allowed": ALLOWED_LABEL,
+            "max_recipients": MAX_RECIPIENTS,
+        },
     )
+
+
+# ---------------- Templates page ----------------
+
+@app.route("/templates", methods=["GET", "POST"])
+@login_required
+def templates_list():
+    form = {"template_name": "", "subject": "", "body": ""}
+    errors = []
+
+    if request.method == "POST":
+        form["template_name"] = request.form.get("template_name", "").strip()
+        form["subject"] = request.form.get("subject", "").strip()
+        form["body"] = clean_body(request.form.get("body", ""))
+
+        errors = check_template(form["template_name"], form["subject"], form["body"])
+
+        if not errors:
+            try:
+                saved, created = save_template(
+                    form["template_name"], form["subject"], form["body"]
+                )
+            except ValueError as exc:
+                errors.append(("template_name", str(exc)))
+            else:
+                flash(
+                    f'Template "{saved.name}" {"saved" if created else "updated"}.',
+                    "success",
+                )
+                return redirect(url_for("templates_list"))
+
+    field_errors = {}
+    for field, message in errors:
+        field_errors.setdefault(field, message)
+
+    return render_template(
+        "email_templates.html",
+        form=form,
+        errors=errors,
+        field_errors=field_errors,
+        templates=user_templates(),
+        limits={
+            "name": MAX_TEMPLATE_NAME,
+            "subject": MAX_SUBJECT,
+            "body": MAX_BODY,
+            "max_templates": MAX_TEMPLATES,
+        },
+    )
+
+
+@app.route("/templates/<int:template_id>/delete", methods=["POST"])
+@login_required
+def template_delete(template_id):
+    template = EmailTemplate.query.filter_by(
+        id=template_id,
+        user_id=current_user.id,
+    ).first()
+
+    if template is None:
+        flash("That template could not be found.", "error")
+    else:
+        name = template.name
+        db.session.delete(template)
+        db.session.commit()
+        flash(f'Template "{name}" deleted.', "success")
+
+    return redirect(url_for("templates_list"))
 
 
 # ---------------- Email history ----------------
