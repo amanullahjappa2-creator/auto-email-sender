@@ -30,6 +30,12 @@
         <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
         <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
         <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/></symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></symbol>
     </defs>
 </svg>
 
@@ -54,9 +60,9 @@
             <button class="nav-item" type="button" data-soon="Contact management is coming soon.">
                 <svg class="icon"><use href="#i-users"/></svg>Contacts
             </button>
-            <button class="nav-item" type="button" data-soon="Saved templates are coming soon.">
+            <a class="nav-item" href="{{ url_for('templates_list') }}"{% if request.endpoint == 'templates_list' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-file"/></svg>Templates
-            </button>
+            </a>
             <span class="nav-sep" role="presentation"></span>
             <a class="nav-item" href="{{ url_for('history') }}"{% if request.endpoint == 'history' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-list"/></svg>History
@@ -105,18 +111,11 @@
         </header>
 
         <main class="page">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="flash-messages" role="status" aria-live="polite">
-                        {% for category, message in messages %}
-                            <p class="state">{{ message }}</p>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
+            {# Every page shows its flash messages here, once. Pages must not include _flash.html themselves. #}
+            {% include "_flash.html" %}
 
             {% if not current_user.is_authenticated and request.endpoint in ['login', 'register'] %}
-                <nav aria-label="Account" style="margin-bottom: 1rem;">
+                <nav aria-label="Account">
                     <a href="{{ url_for('login') }}">Log in</a>
                     |
                     <a href="{{ url_for('register') }}">Create account</a>
