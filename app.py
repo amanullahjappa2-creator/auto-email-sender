@@ -79,7 +79,7 @@ login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "info"
 login_manager.init_app(app)
 
-MAX_RECIPIENTS = 50
+MAX_RECIPIENTS = 120
 MAX_SUBJECT = 200
 MAX_BODY = 20_000
 MAX_RECIPIENT_FIELD = 5_000

@@ -99,7 +99,7 @@
   /* ---------- Recipient count ---------- */
   function updateToCount() {
     if (!toCount) return;
-    var max = parseInt(toCount.getAttribute("data-max"), 10) || 50;
+    var max = parseInt(toCount.getAttribute("data-max"), 10) || 120;
     var seen = {};
     var n = 0;
     fields.recipient.value.split(/[,;\n]+/).forEach(function (item) {
