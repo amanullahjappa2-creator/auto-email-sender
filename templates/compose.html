@@ -5,7 +5,9 @@
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/compose.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/management.css') }}">
   <script src="{{ url_for('static', filename='js/compose.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/management.js') }}" defer></script>
 {% endblock %}
 
 {# Shows the error message under a field, when there is one #}
@@ -103,6 +105,18 @@
             <label for="recipient">To</label>
             <span class="count" id="to-count" aria-live="polite" data-max="{{ limits.max_recipients }}"></span>
           </div>
+          {% if contacts %}
+          <div class="saved-contact-picker">
+            <label class="sr-only" for="saved-contact-picker">Choose saved contacts</label>
+            <select class="input" id="saved-contact-picker" multiple size="3" aria-describedby="saved-contact-hint">
+              {% for contact in contacts %}
+                <option value="{{ contact.email }}">{{ contact.name ~ " — " if contact.name else "" }}{{ contact.email }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-quiet" type="button" id="add-saved-contacts" data-target="recipient">Add selected</button>
+            <p class="hint" id="saved-contact-hint">Select one or more saved contacts, then add them to the recipient list.</p>
+          </div>
+          {% endif %}
           <textarea class="input input-list" id="recipient" name="recipient" rows="3"
                     autocomplete="off" spellcheck="false" required
                     placeholder="admissions@university.edu, scholarships@college.edu"

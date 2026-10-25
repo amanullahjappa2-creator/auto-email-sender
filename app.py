@@ -1,10 +1,14 @@
 
 """MailFlow Studio - multi-user Flask application."""
 
+import csv
+import io
 import os
 import re
 import smtplib
 import ssl
+import sys
+import time
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from functools import wraps
@@ -27,12 +31,11 @@ from flask_login import (
     logout_user,
 )
 from flask_wtf.csrf import CSRFProtect
-from sqlalchemy import func
 from werkzeug.middleware.proxy_fix import ProxyFix
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from config import BASE_DIR, INSTANCE_DIR, Config
-from models import db, User, EmailLog
+from models import Contact, db, EmailLog, ScheduledEmail, User
 from security import encrypt_secret, decrypt_secret
 from compose_tools import (
     ACCEPT_ATTRIBUTE,
@@ -355,11 +358,11 @@ def check_compose(form):
     return recipients, errors
 
 
-def save_email_log(recipient, subject, status):
-    """Save activity under the currently authenticated user."""
+def save_email_log(user_id, recipient, subject, status):
+    """Save activity under the account that sent the message."""
     db.session.add(
         EmailLog(
-            user_id=current_user.id,
+            user_id=user_id,
             recipient=recipient,
             subject=subject,
             status=status,
@@ -367,9 +370,9 @@ def save_email_log(recipient, subject, status):
     )
 
 
-def send_compose_emails(recipients, subject, body, attachments=()):
-    """Send individual messages using this user's own SMTP credentials."""
-    user = db.session.get(User, current_user.id)
+def send_compose_emails(user_id, recipients, subject, body, attachments=()):
+    """Send individual messages using the specified user's SMTP credentials."""
+    user = db.session.get(User, user_id)
 
     if not user or not user.mail_address or not user.encrypted_app_password:
         raise ValueError(
@@ -439,7 +442,7 @@ def send_compose_emails(recipients, subject, body, attachments=()):
                 status = "failed"
 
             results.append((recipient, status))
-            save_email_log(recipient, subject, status)
+            save_email_log(user_id, recipient, subject, status)
             db.session.commit()
 
     except ValueError:
@@ -453,7 +456,7 @@ def send_compose_emails(recipients, subject, body, attachments=()):
         for recipient in recipients:
             if recipient not in processed:
                 results.append((recipient, "failed"))
-                save_email_log(recipient, subject, "failed")
+                save_email_log(user_id, recipient, subject, "failed")
 
         db.session.commit()
     finally:
@@ -464,6 +467,106 @@ def send_compose_emails(recipients, subject, body, attachments=()):
                 pass
 
     return results
+
+
+def process_due_schedules():
+    """Claim and deliver due messages. Safe to call from one or more workers."""
+    now = datetime.now(timezone.utc)
+    ScheduledEmail.query.filter(
+        ScheduledEmail.status == "sending",
+        ScheduledEmail.started_at < now - timedelta(hours=2),
+    ).update(
+        {
+            ScheduledEmail.status: "failed",
+            ScheduledEmail.error_message: (
+                "Delivery was interrupted; check email history before retrying."
+            ),
+        },
+        synchronize_session=False,
+    )
+    db.session.commit()
+
+    due_ids = [
+        row.id
+        for row in (
+            ScheduledEmail.query.filter(
+                ScheduledEmail.status == "scheduled",
+                ScheduledEmail.scheduled_for <= now,
+            )
+            .order_by(ScheduledEmail.scheduled_for, ScheduledEmail.id)
+            .limit(20)
+            .with_entities(ScheduledEmail.id)
+            .all()
+        )
+    ]
+    processed = 0
+
+    for schedule_id in due_ids:
+        claimed = (
+            ScheduledEmail.query.filter_by(id=schedule_id, status="scheduled")
+            .filter(ScheduledEmail.scheduled_for <= now)
+            .update(
+                {
+                    ScheduledEmail.status: "sending",
+                    ScheduledEmail.started_at: now,
+                },
+                synchronize_session=False,
+            )
+        )
+        db.session.commit()
+        if not claimed:
+            continue
+
+        schedule = db.session.get(ScheduledEmail, schedule_id)
+        if schedule is None:
+            continue
+
+        recipients = [
+            item.strip()
+            for item in re.split(r"[,;\n]+", schedule.recipient)
+            if item.strip()
+        ]
+        try:
+            results = send_compose_emails(
+                schedule.user_id,
+                recipients,
+                schedule.subject,
+                schedule.body,
+            )
+            schedule.status = (
+                "sent"
+                if results and all(status == "sent" for _, status in results)
+                else "failed"
+            )
+            if schedule.status == "failed":
+                schedule.error_message = "One or more messages could not be delivered. Check email history."
+        except ValueError as exc:
+            app.logger.warning(
+                "Scheduled email %s could not be delivered: %s",
+                schedule.id,
+                exc,
+            )
+            for recipient in recipients:
+                save_email_log(schedule.user_id, recipient, schedule.subject, "failed")
+            schedule.status = "failed"
+            schedule.error_message = str(exc)[:255]
+
+        db.session.commit()
+        processed += 1
+
+    return processed
+
+
+def run_scheduler():
+    """Run the dedicated polling process for scheduled email delivery."""
+    app.logger.info("Scheduled email worker started.")
+    while True:
+        try:
+            with app.app_context():
+                process_due_schedules()
+        except Exception:
+            app.logger.exception("Scheduled email worker iteration failed.")
+        time.sleep(15)
 
 
 # ---------------- Authentication ----------------
@@ -603,12 +706,11 @@ def dashboard():
         status="failed",
     ).count()
 
-    unique_contacts = (
-        db.session.query(func.count(func.distinct(EmailLog.recipient)))
-        .filter_by(user_id=current_user.id)
-        .scalar()
-        or 0
-    )
+    unique_contacts = Contact.query.filter_by(user_id=current_user.id).count()
+    scheduled_count = ScheduledEmail.query.filter(
+        ScheduledEmail.user_id == current_user.id,
+        ScheduledEmail.status.in_(("scheduled", "sending")),
+    ).count()
 
     # One query feeds the 7-day chart and the "last email" row.
     # It is always filtered by the logged-in user's ID.
@@ -636,7 +738,7 @@ def dashboard():
         post_year=now.year,
         stats={
             "sent": sent_count,
-            "scheduled": 0,
+            "scheduled": scheduled_count,
             "contacts": unique_contacts,
             "failed": failed_count,
         },
@@ -644,6 +746,213 @@ def dashboard():
         last_email=recent_logs[0] if recent_logs else None,
         setup=setup_status(current_user, sent_count + failed_count),
     )
+
+
+@app.route("/contacts", methods=["GET", "POST"])
+@login_required
+def contacts():
+    if request.method == "POST":
+        action = request.form.get("action", "")
+
+        if action == "add":
+            name = request.form.get("name", "").strip()
+            email = request.form.get("email", "").strip()
+            if len(name) > 120 or "\n" in name or "\r" in name:
+                flash("Keep the contact name to one line and under 120 characters.", "error")
+            elif not validate_email_address(email):
+                flash("Enter a valid email address.", "error")
+            else:
+                normalized_email = email.casefold()
+                exists = Contact.query.filter_by(
+                    user_id=current_user.id,
+                    email=normalized_email,
+                ).first()
+                if exists:
+                    flash("That email address is already in your contacts.", "info")
+                else:
+                    db.session.add(
+                        Contact(
+                            user_id=current_user.id,
+                            name=name,
+                            email=normalized_email,
+                        )
+                    )
+                    db.session.commit()
+                    flash("Contact saved.", "success")
+
+        elif action == "import":
+            upload = request.files.get("contact_file")
+            if not upload or not upload.filename:
+                flash("Choose a CSV file to import.", "error")
+            else:
+                content = upload.stream.read(1_000_001)
+                if len(content) > 1_000_000:
+                    flash("The CSV file must be smaller than 1 MB.", "error")
+                else:
+                    try:
+                        reader = csv.DictReader(
+                            io.StringIO(content.decode("utf-8-sig"), newline="")
+                        )
+                        headers = {
+                            (header or "").strip().casefold(): header
+                            for header in (reader.fieldnames or [])
+                        }
+                        email_key = headers.get("email") or headers.get("address")
+                        name_key = headers.get("name") or headers.get("full name")
+                        if not email_key:
+                            flash("The CSV needs an 'email' or 'address' column.", "error")
+                        else:
+                            existing = {
+                                email
+                                for (email,) in db.session.query(Contact.email)
+                                .filter_by(user_id=current_user.id)
+                                .all()
+                            }
+                            added = skipped = 0
+                            for row_number, row in enumerate(reader, start=2):
+                                if row_number > 501:
+                                    skipped += 1
+                                    continue
+                                email = (row.get(email_key) or "").strip().casefold()
+                                name = (row.get(name_key) or "").strip() if name_key else ""
+                                if (
+                                    not validate_email_address(email)
+                                    or len(name) > 120
+                                    or "\n" in name
+                                    or "\r" in name
+                                    or email in existing
+                                ):
+                                    skipped += 1
+                                    continue
+                                db.session.add(
+                                    Contact(
+                                        user_id=current_user.id,
+                                        name=name,
+                                        email=email,
+                                    )
+                                )
+                                existing.add(email)
+                                added += 1
+                            db.session.commit()
+                            flash(
+                                f"Imported {added} contact(s); skipped {skipped} invalid or duplicate row(s).",
+                                "success" if added else "info",
+                            )
+                    except (UnicodeDecodeError, csv.Error):
+                        db.session.rollback()
+                        flash("The uploaded file is not a readable UTF-8 CSV.", "error")
+        else:
+            abort(400)
+
+        return redirect(url_for("contacts"))
+
+    saved_contacts = (
+        Contact.query.filter_by(user_id=current_user.id)
+        .order_by(Contact.name, Contact.email)
+        .limit(5000)
+        .all()
+    )
+    return render_template("contacts.html", contacts=saved_contacts)
+
+
+@app.route("/contacts/<int:contact_id>/delete", methods=["POST"])
+@login_required
+def delete_contact(contact_id):
+    contact = Contact.query.filter_by(
+        id=contact_id,
+        user_id=current_user.id,
+    ).first_or_404()
+    db.session.delete(contact)
+    db.session.commit()
+    flash("Contact deleted.", "success")
+    return redirect(url_for("contacts"))
+
+
+@app.route("/scheduled", methods=["GET", "POST"])
+@login_required
+def scheduled():
+    errors = []
+    form = {
+        "recipient": "",
+        "subject": "",
+        "body": "",
+        "scheduled_for": "",
+    }
+
+    if request.method == "POST":
+        form["recipient"] = request.form.get("recipient", "").strip()
+        form["subject"] = request.form.get("subject", "").strip()
+        form["body"] = clean_body(request.form.get("body", ""))
+        form["scheduled_for"] = request.form.get("scheduled_for", "").strip()
+
+        if not current_user.mail_address or not current_user.encrypted_app_password:
+            errors.append(("form", "Connect your sending account in Email Settings before scheduling."))
+
+        recipients, compose_errors = check_compose(form)
+        errors.extend(compose_errors)
+
+        try:
+            local_schedule = datetime.fromisoformat(form["scheduled_for"])
+            if local_schedule.tzinfo is not None:
+                raise ValueError
+            local_schedule = local_schedule.replace(tzinfo=APP_TZ)
+            scheduled_for = local_schedule.astimezone(timezone.utc)
+            if local_schedule <= local_now():
+                errors.append(("scheduled_for", "Choose a time in the future."))
+        except ValueError:
+            errors.append(("scheduled_for", "Enter a valid date and time."))
+
+        if not errors:
+            db.session.add(
+                ScheduledEmail(
+                    user_id=current_user.id,
+                    recipient=", ".join(recipients),
+                    subject=form["subject"],
+                    body=form["body"],
+                    scheduled_for=scheduled_for,
+                )
+            )
+            db.session.commit()
+            flash("Email scheduled. Keep the scheduler worker running to deliver it on time.", "success")
+            return redirect(url_for("scheduled"))
+
+    queued = (
+        ScheduledEmail.query.filter_by(user_id=current_user.id)
+        .order_by(ScheduledEmail.scheduled_for.desc())
+        .limit(200)
+        .all()
+    )
+    return render_template(
+        "scheduled.html",
+        schedules=queued,
+        form=form,
+        errors=errors,
+        min_schedule=local_now().strftime("%Y-%m-%dT%H:%M"),
+        clock=clock_parts(local_now()),
+        contacts=(
+            Contact.query.filter_by(user_id=current_user.id)
+            .order_by(Contact.name, Contact.email)
+            .limit(5000)
+            .all()
+        ),
+    )
+
+
+@app.route("/scheduled/<int:schedule_id>/cancel", methods=["POST"])
+@login_required
+def cancel_schedule(schedule_id):
+    schedule = ScheduledEmail.query.filter_by(
+        id=schedule_id,
+        user_id=current_user.id,
+        status="scheduled",
+    ).first()
+    if schedule is None:
+        flash("That email is no longer waiting and cannot be cancelled.", "error")
+    else:
+        db.session.delete(schedule)
+        db.session.commit()
+        flash("Scheduled email cancelled.", "success")
+    return redirect(url_for("scheduled"))
 
 
 # ---------------- Saved templates ----------------
@@ -871,6 +1180,7 @@ def compose():
                     try:
                         attachment_data = read_attachments(folder) if folder else []
                         results = send_compose_emails(
+                            current_user.id,
                             recipients,
                             form["subject"],
                             form["body"],
@@ -926,6 +1236,12 @@ def compose():
         draft_id=draft_id,
         attachments=attachments,
         templates=user_templates(),
+        contacts=(
+            Contact.query.filter_by(user_id=current_user.id)
+            .order_by(Contact.name, Contact.email)
+            .limit(5000)
+            .all()
+        ),
         accept=ACCEPT_ATTRIBUTE,
         limits={
             "subject": MAX_SUBJECT,
@@ -1027,8 +1343,11 @@ with app.app_context():
 
 
 if __name__ == "__main__":
-    app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=os.environ.get("FLASK_DEBUG") == "1",
-    )
+    if "--scheduler" in sys.argv[1:]:
+        run_scheduler()
+    else:
+        app.run(
+            host="127.0.0.1",
+            port=5000,
+            debug=os.environ.get("FLASK_DEBUG") == "1",
+        )

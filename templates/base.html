@@ -54,12 +54,12 @@
             <a class="nav-item" href="{{ url_for('compose') }}"{% if request.endpoint == 'compose' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-mail"/></svg>Compose
             </a>
-            <button class="nav-item" type="button" data-soon="Scheduling is coming soon.">
+            <a class="nav-item" href="{{ url_for('scheduled') }}"{% if request.endpoint in ['scheduled', 'cancel_schedule'] %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-clock"/></svg>Scheduled
-            </button>
-            <button class="nav-item" type="button" data-soon="Contact management is coming soon.">
+            </a>
+            <a class="nav-item" href="{{ url_for('contacts') }}"{% if request.endpoint in ['contacts', 'delete_contact'] %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-users"/></svg>Contacts
-            </button>
+            </a>
             <a class="nav-item" href="{{ url_for('templates_list') }}"{% if request.endpoint == 'templates_list' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-file"/></svg>Templates
             </a>

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import UniqueConstraint
 from werkzeug.security import check_password_hash, generate_password_hash
 
 db = SQLAlchemy()
@@ -87,3 +88,50 @@ class EmailLog(db.Model):
     )
 
     user = db.relationship("User", back_populates="email_logs")
+
+
+class Contact(db.Model):
+    """A saved recipient belonging to one MailFlow account."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = db.Column(db.String(120), nullable=False, default="")
+    email = db.Column(db.String(254), nullable=False)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "email", name="uq_contact_user_email"),
+    )
+
+
+class ScheduledEmail(db.Model):
+    """An email waiting for delivery by the scheduler worker."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    recipient = db.Column(db.String(5_000), nullable=False)
+    subject = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    scheduled_for = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default="scheduled", index=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    started_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    error_message = db.Column(db.String(255), nullable=True)

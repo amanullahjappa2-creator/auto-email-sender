@@ -32,9 +32,9 @@
         <a class="btn btn-primary" href="{{ url_for('compose') }}">
           <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
         </a>
-        <button class="btn btn-quiet" type="button" data-soon="Contact import is coming soon.">
+        <a class="btn btn-quiet" href="{{ url_for('contacts') }}">
           <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>Import contacts
-        </button>
+        </a>
       </div>
     </div>
 
@@ -64,7 +64,7 @@
   <div class="stat">
     <dt><span class="dot dot-ink"></span>Contacts</dt>
     <dd class="stat-num">{{ stats.contacts }}</dd>
-    <dd class="stat-note">{{ "Nobody emailed yet" if stats.contacts == 0 else "People you have emailed" }}</dd>
+    <dd class="stat-note">{{ "No saved contacts yet" if stats.contacts == 0 else "Saved in your contacts" }}</dd>
   </div>
   <div class="stat">
     <dt><span class="dot dot-red"></span>Failed</dt>

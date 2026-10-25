@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Contacts | MailFlow Studio{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/management.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="management">
+  <header class="manage-head">
+    <div>
+      <h1>Contacts</h1>
+      <p>Keep recipient addresses saved for your next email.</p>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('compose') }}">Compose email</a>
+  </header>
+
+  <div class="manage-grid">
+    <section class="panel" aria-labelledby="add-contact-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="add-contact-title">Add a contact</h2>
+          <p>Contact details are private to your account.</p>
+        </div>
+      </div>
+      <form class="manage-form" method="post" action="{{ url_for('contacts') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="add">
+        <div class="acc-field">
+          <label class="acc-label" for="contact-name">Name</label>
+          <input class="acc-input" id="contact-name" name="name" type="text" maxlength="120" autocomplete="name">
+        </div>
+        <div class="acc-field">
+          <label class="acc-label" for="contact-email">Email address</label>
+          <input class="acc-input" id="contact-email" name="email" type="email" maxlength="254" required autocomplete="email">
+        </div>
+        <button class="btn btn-primary" type="submit">Save contact</button>
+      </form>
+    </section>
+
+    <section class="panel" aria-labelledby="import-contacts-title">
+      <div class="panel-head">
+        <div>
+          <h2 id="import-contacts-title">Import contacts</h2>
+          <p>CSV file with an <code>email</code> column and optional <code>name</code> column.</p>
+        </div>
+      </div>
+      <form class="manage-form" method="post" action="{{ url_for('contacts') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="import">
+        <div class="acc-field">
+          <label class="acc-label" for="contact-file">CSV file</label>
+          <input class="acc-input" id="contact-file" name="contact_file" type="file" accept=".csv,text/csv" required>
+          <p class="acc-hint">Up to 500 rows and 1 MB per import. Invalid and duplicate addresses are skipped.</p>
+        </div>
+        <button class="btn btn-quiet" type="submit">Import CSV</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="panel manage-list" aria-labelledby="saved-contacts-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="saved-contacts-title">Saved contacts <span class="muted">({{ contacts|length }})</span></h2>
+        <p>Use these addresses when composing an email.</p>
+      </div>
+    </div>
+    {% if contacts %}
+      <div class="manage-scroll" role="region" aria-label="Saved contacts" tabindex="0">
+        <table class="table">
+          <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            {% for contact in contacts %}
+            <tr>
+              <td>{{ contact.name or "—" }}</td>
+              <td class="manage-email">{{ contact.email }}</td>
+              <td class="manage-action">
+                <form method="post" action="{{ url_for('delete_contact', contact_id=contact.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="link-btn" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty manage-empty">
+        <h3>No contacts saved yet</h3>
+        <p>Add one above or import a CSV to build your contact list.</p>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

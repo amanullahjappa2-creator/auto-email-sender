@@ -12,7 +12,7 @@ MailFlow is being developed as a practical email automation tool for students, d
 
 The application includes user authentication, email account configuration, message composition, individual recipient delivery, an activity dashboard, and email history.
 
-Additional features are being developed to support attachments, saved contacts, reusable templates, and scheduled emails.
+The app also supports saved contacts, CSV contact imports, reusable templates, and scheduled email delivery.
 
 ## Features
 
@@ -27,15 +27,14 @@ Additional features are being developed to support attachments, saved contacts, 
 - **Email Preview:** Review recipients and message content before sending.
 - **Email History:** View recorded successful and failed sending attempts.
 - **Activity Dashboard:** View email statistics, recent activity, and sending status.
+- **Contact Management:** Save and remove contacts, or import up to 500 contacts from a CSV file.
+- **Scheduled Email Delivery:** Queue text emails for a future time and cancel them before delivery.
 - **Security Protections:** Password hashing, CSRF protection, and session security settings.
 
 ### Planned
 
 - Multiple file attachments, including PDFs, Word documents, and images.
-- Contact management with saved recipient details.
-- Reusable email templates with editing and saving capabilities.
 - Personalized email content using contact information.
-- Scheduled email delivery.
 - Further testing and usability improvements.
 
 Features listed as planned are not yet represented as completed functionality.
@@ -143,6 +142,27 @@ Register an account, configure email settings, and test sending with an email ad
 
 The current web application sends individual messages to recipients. A server accepting a message does not guarantee delivery to the inbox.
 
+### Scheduled email worker
+
+Scheduled messages are delivered by a separate worker process. Start it in a second terminal alongside the web app:
+
+```bash
+python app.py --scheduler
+```
+
+The worker checks for due messages every 15 seconds and uses each user's saved SMTP settings. Keep it running for scheduled delivery to occur. Run one worker for this application instance; a message interrupted while sending is marked failed after two hours instead of being sent again automatically, since its delivery outcome may be unknown. The selected send time uses `APP_TIMEZONE` (defaults to `Asia/Karachi`).
+
+### Contacts CSV format
+
+Use a UTF-8 CSV with an `email` column and an optional `name` column:
+
+```csv
+name,email
+Example Recipient,recipient@example.com
+```
+
+You can also use `address` instead of `email`. Duplicate and invalid rows are skipped.
+
 ## Security and Responsible Use
 
 MailFlow includes several security measures:
@@ -162,15 +182,12 @@ Use MailFlow responsibly. Contact appropriate recipients, respect email provider
 
 MailFlow is a personal software project being developed incrementally.
 
-The current implementation includes account authentication, email settings, message composition, SMTP sending, a dashboard, and email history. Multiple attachments, contact management, reusable templates, and scheduled delivery remain planned improvements.
+The current implementation includes account authentication, email settings, message composition, SMTP sending, a dashboard, email history, saved contacts, reusable templates, and scheduled delivery.
 
 ## Future Goals
 
 - Complete secure multiple-attachment support.
-- Build a functional contacts page.
-- Implement template creation and management.
 - Add flexible email personalization.
-- Implement reliable scheduled sending.
 - Expand automated testing and deployment options.
 
 ## Author

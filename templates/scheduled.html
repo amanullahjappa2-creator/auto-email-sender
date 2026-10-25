@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Scheduled emails | MailFlow Studio{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/management.css') }}">
+  <script src="{{ url_for('static', filename='js/management.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="management">
+  <header class="manage-head">
+    <div>
+      <h1>Scheduled emails</h1>
+      <p>Choose a future date and time in {{ clock.zone if clock is defined else "your app time zone" }}.</p>
+    </div>
+    <a class="btn btn-quiet" href="{{ url_for('contacts') }}">Manage contacts</a>
+  </header>
+
+  {% if errors %}
+  <div class="notice notice-error" role="alert">
+    <div>
+      <strong>Fix these details before scheduling:</strong>
+      <ul>{% for _field, message in errors %}<li>{{ message }}</li>{% endfor %}</ul>
+    </div>
+  </div>
+  {% endif %}
+
+  <section class="panel schedule-form-panel" aria-labelledby="schedule-email-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="schedule-email-title">Schedule an email</h2>
+        <p>Each recipient receives an individual message.</p>
+      </div>
+    </div>
+    <form class="manage-form schedule-form" method="post" action="{{ url_for('scheduled') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="acc-field">
+        <label class="acc-label" for="scheduled-recipient">Recipients</label>
+        {% if contacts %}
+        <div class="saved-contact-picker">
+          <label class="sr-only" for="saved-contact-picker">Choose saved contacts</label>
+          <select class="acc-input" id="saved-contact-picker" multiple size="3" aria-describedby="saved-contact-hint">
+            {% for contact in contacts %}
+              <option value="{{ contact.email }}">{{ contact.name ~ " — " if contact.name else "" }}{{ contact.email }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-quiet" type="button" id="add-saved-contacts" data-target="scheduled-recipient">Add selected</button>
+          <p class="acc-hint" id="saved-contact-hint">Select saved contacts to add them to your recipients.</p>
+        </div>
+        {% endif %}
+        <textarea class="acc-input" id="scheduled-recipient" name="recipient" rows="3" maxlength="5000" required>{{ form.recipient }}</textarea>
+        <p class="acc-hint">Up to 120 valid addresses separated by commas or new lines. Import or save addresses from Contacts.</p>
+      </div>
+      <div class="acc-field">
+        <label class="acc-label" for="scheduled-subject">Subject</label>
+        <input class="acc-input" id="scheduled-subject" name="subject" type="text" maxlength="200" value="{{ form.subject }}" required>
+      </div>
+      <div class="acc-field">
+        <label class="acc-label" for="scheduled-body">Message</label>
+        <textarea class="acc-input" id="scheduled-body" name="body" rows="7" maxlength="20000" required>{{ form.body }}</textarea>
+      </div>
+      <div class="acc-field schedule-time">
+        <label class="acc-label" for="scheduled-for">Send date and time</label>
+        <input class="acc-input" id="scheduled-for" name="scheduled_for" type="datetime-local" min="{{ min_schedule }}" value="{{ form.scheduled_for }}" required>
+        <p class="acc-hint">The selected time uses the app's configured time zone.</p>
+      </div>
+      <button class="btn btn-primary" type="submit">Schedule email</button>
+      <p class="acc-hint">The scheduler worker must be running for delivery to happen at the selected time.</p>
+    </form>
+  </section>
+
+  <section class="panel manage-list" aria-labelledby="queue-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="queue-title">Your queue <span class="muted">({{ schedules|length }})</span></h2>
+        <p>Scheduled emails and their latest delivery status.</p>
+      </div>
+    </div>
+    {% if schedules %}
+      <div class="manage-scroll" role="region" aria-label="Scheduled email queue" tabindex="0">
+        <table class="table schedule-table">
+          <thead><tr><th scope="col">Send time</th><th scope="col">Recipient(s)</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            {% for item in schedules %}
+            <tr>
+              <td class="col-nowrap">{{ item.scheduled_for|local_time("%d %b %Y, %I:%M %p") }}</td>
+              <td class="manage-email">{{ item.recipient }}</td>
+              <td>{{ item.subject }}</td>
+              <td>
+                <span class="badge badge-{{ 'scheduled' if item.status in ('scheduled', 'sending') else item.status }}">{{ item.status|capitalize }}</span>
+                {% if item.error_message %}<p class="manage-error">{{ item.error_message }}</p>{% endif %}
+              </td>
+              <td class="manage-action">
+                {% if item.status == "scheduled" %}
+                <form method="post" action="{{ url_for('cancel_schedule', schedule_id=item.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="link-btn" type="submit">Cancel</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty manage-empty">
+        <h3>No scheduled emails</h3>
+        <p>Emails you schedule will appear here with their delivery status.</p>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
