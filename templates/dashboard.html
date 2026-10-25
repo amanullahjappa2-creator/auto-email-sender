@@ -35,6 +35,12 @@
         <a class="btn btn-quiet" href="{{ url_for('contacts') }}">
           <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>Import contacts
         </a>
+        <form method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-quiet" type="submit">
+            <svg class="icon" aria-hidden="true"><use href="#i-log-out"/></svg>Log out
+          </button>
+        </form>
       </div>
     </div>
 

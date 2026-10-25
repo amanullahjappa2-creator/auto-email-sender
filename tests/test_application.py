@@ -410,6 +410,29 @@ class ApplicationSecurityTests(unittest.TestCase):
             with self.subTest(icon=icon):
                 self.assertIn(icon, dashboard.data)
 
+    def test_dashboard_logout_button_logs_user_out(self):
+        user_id = self.create_user("dashboard-logout@example.test")
+        client = self.authenticated_client(user_id)
+        dashboard = client.get("/", base_url="https://localhost")
+
+        self.assertIn(b' action="/logout"', dashboard.data)
+        self.assertIn(b"Log out", dashboard.data)
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"',
+            dashboard.data,
+        )
+        self.assertIsNotNone(token)
+        response = client.post(
+            "/logout",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/"},
+            data={"csrf_token": token.group(1).decode()},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].endswith("/login"))
+        self.assertEqual(client.get("/", base_url="https://localhost").status_code, 302)
+
     def test_login_rejects_posts_without_csrf_token(self):
         response = application.test_client().post(
             "/login",
