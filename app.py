@@ -34,7 +34,7 @@ from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from config import BASE_DIR, INSTANCE_DIR, Config
+from config import BASE_DIR, DATABASE_PATH, INSTANCE_DIR, Config
 from models import Contact, db, EmailLog, ScheduledEmail, User
 from security import encrypt_secret, decrypt_secret
 from compose_tools import (
