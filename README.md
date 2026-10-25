@@ -1,230 +1,302 @@
-# MailFlow
+# MailFlow Studio
 
 [![CI](https://github.com/amanullahjappa2-creator/auto-email-sender/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/amanullahjappa2-creator/auto-email-sender/actions/workflows/ci.yml)
 
-**A Web-Based Email Automation Platform Built with Python and Flask**
-
-MailFlow is a web-based email automation application designed to simplify email composition, recipient management, and email delivery through SMTP.
-
-The project aims to make repetitive email tasks easier with a user-friendly interface, secure credential management, reusable email templates, and efficient recipient handling.
-
-## Overview
-
-MailFlow is being developed as a practical email automation tool for students, developers, and individuals who regularly send emails for professional, academic, and personal purposes.
-
-The application includes user authentication, email account configuration, message composition, individual recipient delivery, an activity dashboard, and email history.
-
-The app also supports saved contacts, CSV contact imports, reusable templates, and scheduled email delivery.
+MailFlow Studio is a self-hosted Flask application for writing and sending
+individual emails, managing contacts, reusing templates, and scheduling
+messages. Each recipient receives a separate email; recipients are not shown
+each other's addresses.
 
 ## Features
 
-### Implemented
+- **Private accounts:** Register, sign in, and manage data scoped to your account.
+- **Personal SMTP settings:** Configure the sending address, sender display
+  name, SMTP host, port, and Gmail App Password for your account.
+- **Encrypted credentials:** The saved SMTP App Password is encrypted with
+  Fernet before it is stored in the database.
+- **Compose and preview:** Review the subject, message, recipients, and
+  attachments before confirming delivery.
+- **Individual delivery:** Send to up to 120 validated recipients, one message
+  per recipient.
+- **Attachments:** Attach up to five PDF, Office, text, CSV, JPG, or PNG files,
+  with a combined size limit of 10 MB. File signatures are checked, and files
+  are held in private draft storage until sending.
+- **Contacts:** Save and delete contacts, select saved contacts while
+  composing or scheduling, and import UTF-8 CSV files. Imports accept up to
+  500 rows and 1 MB per file; use an `email` or `address` column and an
+  optional `name` or `full name` column.
+- **Reusable templates:** Save, update, use, and delete up to 50 templates per
+  account. Templates load into Compose for editing before sending.
+- **Scheduled email:** Queue a message for a future time, review its status,
+  and cancel it before delivery. A separate scheduler worker must be running.
+- **Activity and insights:** View your dashboard, delivery statistics, recent
+  activity, and up to 200 recent email-history records.
+- **Light and dark themes:** Choose a theme in the interface; the preference is
+  stored in your browser.
+- **Security protections:** Password hashing, CSRF protection, secure session
+  cookie options, security response headers, and per-account data access.
 
-- **User Authentication:** Account registration, login, and logout.
-- **Email Settings:** Configure an SMTP server and personal sending account.
-- **Credential Encryption:** Encrypt saved email app passwords using Fernet.
-- **Email Composition:** Create messages with a subject and body.
-- **Recipient Validation:** Validate addresses, remove duplicates, and support multiple recipients.
-- **Individual Delivery:** Send separate messages to recipients without exposing the complete recipient list.
-- **Email Preview:** Review recipients and message content before sending.
-- **Email History:** View recorded successful and failed sending attempts.
-- **Activity Dashboard:** View email statistics, recent activity, and sending status.
-- **Contact Management:** Save and remove contacts, or import up to 500 contacts from a CSV file.
-- **Scheduled Email Delivery:** Queue text emails for a future time and cancel them before delivery.
-- **Security Protections:** Password hashing, CSRF protection, and session security settings.
+SMTP server acceptance is not a guarantee that a message reaches the
+recipient's inbox. Delivery can be delayed, filtered, or rejected by the
+recipient's provider.
 
-### Planned
+## Requirements
 
-- Multiple file attachments, including PDFs, Word documents, and images.
-- Personalized email content using contact information.
-- Further testing and usability improvements.
+- Python 3.11, 3.12, or 3.13
+- An SMTP account and credentials authorized for SMTP sending
+- Git
 
-Features listed as planned are not yet represented as completed functionality.
+The default development database is SQLite. Set `DATABASE_URL` to use another
+SQLAlchemy-supported database; PostgreSQL's `psycopg` driver is included in
+the requirements.
 
-## Technology Stack
+## Local development
 
-| Technology | Purpose |
-|---|---|
-| Python | Core application logic |
-| Flask | Web framework |
-| Flask-SQLAlchemy | Database integration |
-| SQLite | Local development database |
-| Flask-Login | User authentication |
-| Flask-WTF | CSRF protection |
-| Cryptography | Credential encryption |
-| SMTP | Email delivery |
-| HTML, CSS, JavaScript | Frontend interface |
-
-## Project Structure
-
-```text
-auto-email-sender/
-├── app.py
-├── config.py
-├── models.py
-├── security.py
-├── requirements.txt
-├── .env.example
-├── .gitignore
-├── README.md
-├── templates/
-├── static/
-├── instance/
-└── send_emails.py
-```
-
-This is a simplified overview. The actual directory structure may contain additional files.
-
-## Getting Started
-
-### Requirements
-
-- Python 3.11 or later recommended.
-- Git.
-- An SMTP-compatible email account.
-- An app password or other appropriate SMTP credentials.
-
-### 1. Clone the Repository
+### 1. Get the source and create an environment
 
 ```bash
 git clone https://github.com/amanullahjappa2-creator/auto-email-sender.git
 cd auto-email-sender
-```
-
-### 2. Create a Virtual Environment
-
-```bash
 python -m venv .venv
 ```
 
-Activate it on Windows Command Prompt:
+Activate the environment:
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+```
 
 ```bat
+:: Windows Command Prompt
 .venv\Scripts\activate.bat
 ```
 
-### 3. Install Dependencies
+```bash
+# macOS / Linux
+source .venv/bin/activate
+```
+
+### 2. Install dependencies and configure secrets
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-### 4. Configure Environment Variables
-
-Create a local `.env` file using `.env.example` as a reference.
-
-Configure the required application secrets and settings, including:
-
-- `FLASK_SECRET_KEY`
-- `MAIL_SETTINGS_ENCRYPTION_KEY`
-- Any SMTP environment variables required by your local setup.
-
-Generate unique secrets locally and never publish real credentials or secret keys:
+Copy `.env.example` to `.env` and generate **your own** secrets locally:
 
 ```powershell
+Copy-Item .env.example .env
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Use the first output for `FLASK_SECRET_KEY` and the second for `MAIL_SETTINGS_ENCRYPTION_KEY`. `COOKIE_SECURE=1` is the secure default and requires HTTPS. For local-only HTTP development, explicitly set `COOKIE_SECURE=0` in your untracked `.env`; do not use that setting in production. VS Code terminal auto-loading of `.env` is disabled in the repository settings.
+Put the first generated value in `FLASK_SECRET_KEY` and the second in
+`MAIL_SETTINGS_ENCRYPTION_KEY` in your local `.env` file. Do not use the
+example placeholder values as real secrets, share `.env`, or commit it.
+`FLASK_SECRET_KEY` must be at least 32 characters. Keep the encryption key
+stable and backed up securely: changing or losing it prevents the app from
+decrypting SMTP credentials already saved in the database.
 
-### 5. Run the Application
+Available environment settings:
+
+| Variable | Required | Default | Purpose |
+|---|---:|---|---|
+| `FLASK_SECRET_KEY` | Yes | — | Signs Flask sessions; provide at least 32 random characters. |
+| `MAIL_SETTINGS_ENCRYPTION_KEY` | Yes | — | Fernet key used to encrypt saved SMTP credentials. |
+| `COOKIE_SECURE` | No | `1` | Enables `Secure` session cookies. Keep enabled over HTTPS. For local HTTP development only, set `COOKIE_SECURE=0` in `.env`. |
+| `APP_TIMEZONE` | No | `Asia/Karachi` | Time zone used to display dates and interpret scheduled send times. |
+| `DATABASE_URL` | No | Local SQLite database | SQLAlchemy database connection URL. |
+| `FLASK_DEBUG` | No | `0` | Set to `1` only for local development. Never enable debug mode in production. |
+
+The `.env` file is loaded by the application and ignored by Git. VS Code
+terminal auto-loading of `.env` is disabled in the repository settings.
+
+### 3. Start the web app
 
 ```bash
 python app.py
 ```
 
-Open the following address in your browser:
+Open <http://127.0.0.1:5000>, create an account, then open **Email Settings**
+to add your sending account. Gmail users should use an App Password, not their
+normal Gmail password. The default SMTP server is `smtp.gmail.com` on SSL port
+`465`; the account's SMTP host and port can be changed in settings.
 
-http://127.0.0.1:5000
+The local server binds to `127.0.0.1` and is intended for development, not
+direct public exposure.
 
-Register an account, configure email settings, and test sending with an email address you control.
+### 4. Run the scheduled-email worker
 
-## How It Works
-
-1. Register or sign in to MailFlow.
-2. Configure your SMTP sending account.
-3. Compose a message and enter recipient addresses.
-4. Review the recipient list and message preview.
-5. Confirm and send the email.
-6. Review the recorded result in Email History.
-
-The current web application sends individual messages to recipients. A server accepting a message does not guarantee delivery to the inbox.
-
-### Scheduled email worker
-
-Scheduled messages are delivered by a separate worker process. Start it in a second terminal alongside the web app:
+Start a second terminal, activate the same virtual environment, and run:
 
 ```bash
 python app.py --scheduler
 ```
 
-The worker checks for due messages every 15 seconds and uses each user's saved SMTP settings. Keep it running for scheduled delivery to occur. Run one worker for this application instance; a message interrupted while sending is marked failed after two hours instead of being sent again automatically, since its delivery outcome may be unknown. The selected send time uses `APP_TIMEZONE` (defaults to `Asia/Karachi`).
+The worker polls for due messages every 15 seconds. Keep exactly one worker
+running for an application instance and keep it running for scheduled delivery.
+Scheduled times use `APP_TIMEZONE`. If sending is interrupted and the outcome
+is unknown, the application does not automatically retry the message; an
+interrupted send is marked failed after two hours to avoid accidental duplicate
+delivery.
 
-### Contacts CSV format
+## Using the application
 
-Use a UTF-8 CSV with an `email` column and an optional `name` column:
+1. **Create an account** and sign in.
+2. **Configure Email Settings** with your SMTP sending account and App
+   Password.
+3. **Add contacts** manually or import them from CSV, if useful.
+4. **Compose an email:** enter recipients, subject, and message; optionally
+   attach files or start from a saved template.
+5. **Preview and confirm** the message before it is sent. Multiple addresses
+   receive separate messages.
+6. **Schedule** a message from the Scheduled page when it should be delivered
+   later; make sure the worker is running.
+7. Review results in **History** and delivery summaries on the dashboard.
+
+### Contact CSV example
+
+Save a UTF-8 CSV with a header row:
 
 ```csv
 name,email
 Example Recipient,recipient@example.com
 ```
 
-You can also use `address` instead of `email`. Duplicate and invalid rows are skipped.
+The address column may be named `email` or `address`; the optional name column
+may be `name` or `full name`. Duplicate, invalid, and excess rows are skipped.
 
-## Security and Responsible Use
+### Templates
 
-MailFlow includes several security measures:
+Templates save a name, subject, and message body—not recipients or attachments.
+Loading a template copies its content into Compose so you can edit it and
+preview it before sending. Template placeholders, if present in the message,
+are text for you to edit; contact details are not automatically substituted.
 
-- Passwords are stored as hashes.
-- Saved SMTP credentials are encrypted before database storage.
-- Authenticated email activity is scoped to the current user.
-- CSRF protection is enabled.
-- Secret configuration files should remain private.
-- Individual recipient messages help protect recipient privacy.
+New accounts start with an empty template list. To add the ten built-in sample
+templates to the first account in a local database, sign in once and run:
 
-Use MailFlow responsibly. Contact appropriate recipients, respect email provider limits, and comply with applicable privacy and anti-spam requirements.
+```bash
+python add_sample_templates.py
+```
 
-## Security incident response
+The script adds missing samples and refreshes only an unchanged legacy sample
+body; it preserves custom edits. It operates on the first account returned by
+the database, so review the target account before using it on a shared database.
 
-Never commit `.env`, the `instance/` directory, local contact or sending CSVs, database files, or private credentials. If sensitive data was already pushed, removing it in a later commit does not remove it from previous Git history, forks, or caches. Rotate the exposed SMTP credentials immediately. Ask repository collaborators to discard old clones, then coordinate a Git-history purge and force-push before treating the old data as removed.
+## Optional standalone CSV sender
 
-## Development Status
+`send_emails.py` is a separate command-line utility; it does not use the
+MailFlow web app's per-account settings, database, or scheduled queue. It reads
+`recipients.csv` and `template.txt` from the current directory by default and
+uses `$column_name` placeholders from CSV headers in the subject and message.
+It keeps a local `sent_log.csv` to skip recipients already logged as sent.
 
-**Status: In active development**
+For example, first preview without sending:
 
-MailFlow is a personal software project being developed incrementally.
+```bash
+python send_emails.py --dry-run
+```
 
-The current implementation includes account authentication, email settings, message composition, SMTP sending, a dashboard, email history, saved contacts, reusable templates, and scheduled delivery.
+To send, configure these values in a private `.env` file:
 
-Run the automated security and application tests locally with:
+| Variable | Required for sending | Default | Purpose |
+|---|---:|---|---|
+| `EMAIL_ADDRESS` | Yes | — | SMTP sender address. |
+| `EMAIL_APP_PASSWORD` | Yes | — | SMTP account password or provider App Password. |
+| `SMTP_HOST` | No | `smtp.gmail.com` | SMTP server hostname. |
+| `SMTP_PORT` | No | `465` | SSL SMTP port. |
+| `SENDER_NAME` | No | Empty | Optional display name. |
+
+Then run `python send_emails.py`. Options include `--csv`, `--template`,
+`--subject`, `--delay`, and `--attach`; see `python send_emails.py --help`.
+The optional attachment is treated as a PDF. This utility sends real email
+when run without `--dry-run`; use only with recipients you are authorized to
+contact. Its `sent_log.csv` and recipient data are private local files—do not
+commit them.
+
+## Production deployment
+
+Deploy on a supported server behind an HTTPS-terminating reverse proxy. For
+example, on Linux, Gunicorn is included in `requirements.txt`:
+
+```bash
+gunicorn --bind 127.0.0.1:8000 app:app
+```
+
+Run `python app.py --scheduler` as a separate supervised process on the same
+application release and database. Do not run multiple scheduler workers for
+the same deployment.
+
+Before exposing an instance:
+
+- Set unique, strong `FLASK_SECRET_KEY` and
+  `MAIL_SETTINGS_ENCRYPTION_KEY` values in the host's secret manager or
+  protected environment—not in source control.
+- Preserve the encryption key across restarts and backups. Restrict access to
+  database files, backups, and the instance directory.
+- Set `COOKIE_SECURE=1`, use HTTPS, and keep debug mode disabled.
+- Configure a persistent `DATABASE_URL` and durable private storage for the
+  database and attachment drafts. Local SQLite is suitable for development,
+  not every multi-worker production deployment.
+- Back up application data securely and test restore procedures. Use database
+  migrations for production schema changes; the app's `create_all()` startup
+  initialization is not a migration system.
+- Follow your SMTP provider's sending limits and applicable privacy,
+  consent, and anti-spam requirements.
+
+The app provides security features but does not by itself guarantee a secure
+deployment. Protect the host, secrets, database, backups, and SMTP account.
+
+## Development and tests
+
+Run the automated application and security regression tests:
 
 ```bash
 python -m unittest discover --start-directory tests --verbose
 ```
 
-## Future Goals
+GitHub Actions runs this test suite on Python 3.11, 3.12, and 3.13 for pushes
+and pull requests targeting `main`.
 
-- Complete secure multiple-attachment support.
-- Add flexible email personalization.
-- Expand automated testing and deployment options.
+## Project layout
 
-## Author
+```text
+.
+├── app.py                    # Flask routes, mail delivery, and scheduler worker
+├── config.py                 # Environment-based application configuration
+├── models.py                 # User, contact, history, and scheduled-email models
+├── template_models.py        # Saved email-template model
+├── security.py               # SMTP credential encryption
+├── compose_tools.py          # Attachment and recipient-file handling
+├── add_sample_templates.py   # Seed or refresh built-in sample templates
+├── send_emails.py            # Standalone command-line email sender
+├── templates/                # Jinja pages
+├── static/                   # CSS, JavaScript, and theme assets
+├── tests/                    # Application and security regression tests
+└── .github/workflows/ci.yml  # GitHub Actions test workflow
+```
 
-**Aman Ullah**
+## Security and responsible use
 
-BS Information Technology Student  
-Times University, Multan, Pakistan
+- Passwords are hashed; SMTP App Passwords are encrypted at rest using the
+  configured Fernet key.
+- Authenticated pages and database queries are scoped to the signed-in user.
+- CSRF protection and security headers are enabled.
+- Session cookies are `HttpOnly` and `SameSite=Lax`; `Secure` follows
+  `COOKIE_SECURE`.
+- On POSIX systems, the application restricts permissions on its instance
+  directory, SQLite database, and attachment draft storage.
+- `.env`, `instance/`, local databases, recipient files, logs, and private key
+  files are excluded by `.gitignore`. Review staged files before every push.
 
-Interests: Python, Artificial Intelligence, software development, and practical technology solutions.
-
-- GitHub: [amanullahjappa2-creator](https://github.com/amanullahjappa2-creator)
-- Email: [amanullahjappa2@gmail.com](mailto:amanullahjappa2@gmail.com)
+Use this application only for messages you are authorized to send. Respect
+recipient privacy, provider policies, and local laws. If credentials or
+personal data are exposed, revoke or rotate affected credentials immediately;
+removing a file in a later commit does not remove it from Git history, clones,
+or caches.
 
 ## License
 
-MailFlow is open-source software licensed under the [MIT License](LICENSE).
-
-You are free to use, copy, modify, merge, publish, distribute, sublicense, and sell copies of the software, subject to the terms and conditions of the MIT License.
-
-See the [LICENSE](LICENSE) file for the complete license text.
+MailFlow Studio is licensed under the [MIT License](LICENSE).

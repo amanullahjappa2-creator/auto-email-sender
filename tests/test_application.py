@@ -27,7 +27,9 @@ os.environ["MAIL_SETTINGS_ENCRYPTION_KEY"] = (
 os.environ["COOKIE_SECURE"] = "1"
 
 import app as mailflow_app
+from add_sample_templates import SAMPLE_TEMPLATES, add_sample_templates
 from models import Contact, EmailLog, User, db
+from template_models import EmailTemplate
 
 application = mailflow_app.app
 application.config.update(TESTING=True)
@@ -55,6 +57,7 @@ class ApplicationSecurityTests(unittest.TestCase):
         with application.app_context():
             EmailLog.query.delete()
             Contact.query.delete()
+            EmailTemplate.query.delete()
             User.query.delete()
             db.session.commit()
 
@@ -200,6 +203,57 @@ class ApplicationSecurityTests(unittest.TestCase):
                 for cookie in response.headers.getlist("Set-Cookie")
             )
         )
+
+    def test_sample_templates_are_detailed_and_refresh_existing_samples(self):
+        user_id = self.create_user("templates@example.test")
+        self.assertEqual(len(SAMPLE_TEMPLATES), 10)
+        for template in SAMPLE_TEMPLATES:
+            with self.subTest(template=template["name"]):
+                self.assertGreaterEqual(len(template["body"]), 300)
+
+        with application.app_context():
+            first_template = SAMPLE_TEMPLATES[0]
+            db.session.add(
+                EmailTemplate(
+                    user_id=user_id,
+                    name=first_template["name"],
+                    subject=first_template["subject"],
+                    body=first_template["legacy_body"],
+                )
+            )
+            db.session.commit()
+
+        add_sample_templates()
+
+        with application.app_context():
+            saved_templates = EmailTemplate.query.filter_by(user_id=user_id).all()
+            self.assertEqual(len(saved_templates), 10)
+            refreshed = EmailTemplate.query.filter_by(
+                user_id=user_id,
+                name=SAMPLE_TEMPLATES[0]["name"],
+            ).one()
+            self.assertEqual(refreshed.subject, SAMPLE_TEMPLATES[0]["subject"])
+            self.assertEqual(refreshed.body, SAMPLE_TEMPLATES[0]["body"])
+
+        with application.app_context():
+            refreshed = EmailTemplate.query.filter_by(
+                user_id=user_id,
+                name=SAMPLE_TEMPLATES[0]["name"],
+            ).one()
+            refreshed.body = "A user-edited version that must be preserved."
+            db.session.commit()
+
+        add_sample_templates()
+
+        with application.app_context():
+            self.assertEqual(EmailTemplate.query.filter_by(user_id=user_id).count(), 10)
+            self.assertEqual(
+                EmailTemplate.query.filter_by(
+                    user_id=user_id,
+                    name=SAMPLE_TEMPLATES[0]["name"],
+                ).one().body,
+                "A user-edited version that must be preserved.",
+            )
 
 
 if __name__ == "__main__":

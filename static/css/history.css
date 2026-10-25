@@ -41,3 +41,11 @@
   .hist-stats .stat-note { display: none; }
   .hist-table th, .hist-table td { padding-left: 16px; padding-right: 16px; }
 }
+
+.hist-head h1 { letter-spacing: -0.035em; }
+
+.hist-table td { line-height: 1.5; }
+
+.history .empty {
+  background: radial-gradient(ellipse at 50% 0, color-mix(in srgb, var(--accent) 5%, transparent), transparent 24rem);
+}

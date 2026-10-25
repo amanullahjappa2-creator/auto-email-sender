@@ -38,3 +38,27 @@
   .manage-head { flex-direction: column; gap: 12px; }
   .manage-form { padding: 16px; }
 }
+
+.manage-head h1 { letter-spacing: -0.035em; }
+
+.manage-form .btn { justify-self: start; }
+
+.manage-list .manage-empty {
+  border-top: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+}
+
+.saved-contact-picker {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.saved-contact-picker .acc-hint { margin-top: 2px; }
+
+.manage-error {
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--red) 8%, var(--surface));
+}

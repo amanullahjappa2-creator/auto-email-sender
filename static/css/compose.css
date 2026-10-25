@@ -358,3 +358,30 @@ textarea.input.input-list { min-height: 92px; resize: vertical; line-height: 1.5
   .mail-meta { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .mail-meta dd { margin-bottom: 8px; }
 }
+
+/* ---------- Finishing touches ---------- */
+.tpl-bar {
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.compose .panel-head h2 { letter-spacing: -0.015em; }
+
+.input,
+.file-input {
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.file-input {
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-2) 82%, var(--surface));
+}
+
+.send-area {
+  border-radius: 0 0 14px 14px;
+}
+
+.mail {
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}

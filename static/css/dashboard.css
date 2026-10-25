@@ -129,3 +129,38 @@
   .delivery { padding: 16px; gap: 16px; }
   .ring-wrap { width: 88px; height: 88px; }
 }
+
+/* ---------- Finishing touches ---------- */
+.letter {
+  padding: 8px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-float);
+}
+
+.letter-inner {
+  padding: 42px 46px;
+  border-radius: 10px;
+}
+
+.hero-date {
+  border-color: color-mix(in srgb, var(--accent) 15%, var(--line));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+.week-chart {
+  position: relative;
+  border-bottom-color: var(--line);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 36px,
+    color-mix(in srgb, var(--line) 70%, transparent) 37px,
+    transparent 38px
+  );
+}
+
+.bar-sent, .bar-failed { rx: 1.2px; }
+
+@media (max-width: 640px) {
+  .letter-inner { padding: 26px 20px; }
+}
