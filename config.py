@@ -23,6 +23,11 @@ class Config:
             "FLASK_SECRET_KEY is missing. "
             "Add a strong random secret to your .env file."
         )
+    if len(SECRET_KEY) < 32:
+        raise RuntimeError(
+            "FLASK_SECRET_KEY must contain at least 32 characters. "
+            "Generate a new random secret and update your .env file."
+        )
 
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "DATABASE_URL",
@@ -35,3 +40,8 @@ class Config:
 
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "1") == "1"
+    SESSION_PROTECTION = "strong"
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "1") == "1"
+    REMEMBER_COOKIE_SAMESITE = "Lax"

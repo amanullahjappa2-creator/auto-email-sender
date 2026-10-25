@@ -61,18 +61,15 @@ from template_models import EmailTemplate
 # Load local environment settings before initializing the application.
 load_dotenv(BASE_DIR / ".env")
 INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
+if os.name == "posix":
+    INSTANCE_DIR.chmod(0o700)
 
 app = Flask(__name__)
 app.config.from_object(Config)
-app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 # Total request size limit. The attachment rules themselves (file count,
 # 10 MB total, allowed types) are enforced in compose_tools.py.
 app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
-app.config["SESSION_COOKIE_SECURE"] = (
-    os.environ.get("COOKIE_SECURE", "0") == "1"
-)
-
 db.init_app(app)
 CSRFProtect(app)
 
@@ -80,6 +77,7 @@ login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "info"
+login_manager.session_protection = app.config["SESSION_PROTECTION"]
 login_manager.init_app(app)
 
 MAX_RECIPIENTS = 120
@@ -126,6 +124,12 @@ def add_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), payment=()"
+    )
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
     response.headers["Cache-Control"] = "no-store"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
@@ -133,10 +137,15 @@ def add_security_headers(response):
         "style-src 'self' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
+        "object-src 'none'; "
         "base-uri 'self'; "
         "form-action 'self'; "
         "frame-ancestors 'none'"
     )
+    if request.is_secure:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
     return response
 
 
@@ -1340,6 +1349,8 @@ def history():
 # For production schema changes, use database migrations.
 with app.app_context():
     db.create_all()
+    if os.name == "posix" and DATABASE_PATH.is_file():
+        DATABASE_PATH.chmod(0o600)
 
 
 if __name__ == "__main__":

@@ -117,7 +117,14 @@ Configure the required application secrets and settings, including:
 - `MAIL_SETTINGS_ENCRYPTION_KEY`
 - Any SMTP environment variables required by your local setup.
 
-Generate strong, unique secret values locally. Never publish real credentials or secret keys in your repository.
+Generate unique secrets locally and never publish real credentials or secret keys:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Use the first output for `FLASK_SECRET_KEY` and the second for `MAIL_SETTINGS_ENCRYPTION_KEY`. `COOKIE_SECURE=1` is the secure default and requires HTTPS. For local-only HTTP development, explicitly set `COOKIE_SECURE=0` in your untracked `.env`; do not use that setting in production. VS Code terminal auto-loading of `.env` is disabled in the repository settings.
 
 ### 5. Run the Application
 
@@ -175,6 +182,10 @@ MailFlow includes several security measures:
 - Individual recipient messages help protect recipient privacy.
 
 Use MailFlow responsibly. Contact appropriate recipients, respect email provider limits, and comply with applicable privacy and anti-spam requirements.
+
+## Security incident response
+
+Never commit `.env`, the `instance/` directory, local contact or sending CSVs, database files, or private credentials. If sensitive data was already pushed, removing it in a later commit does not remove it from previous Git history, forks, or caches. Rotate the exposed SMTP credentials immediately. Ask repository collaborators to discard old clones, then coordinate a Git-history purge and force-push before treating the old data as removed.
 
 ## Development Status
 

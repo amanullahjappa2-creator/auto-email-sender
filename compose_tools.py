@@ -200,11 +200,16 @@ def add_files(directory, uploads):
         return 0, problems
 
     directory.mkdir(parents=True, exist_ok=True)
+    if os.name == "posix":
+        directory.chmod(0o700)
     number = max([int(_STORED_RE.match(i["stored"]).group(1)) for i in existing] + [0])
 
     for name, data in accepted:
         number += 1
-        (directory / f"{number:02d}__{name}").write_bytes(data)
+        stored_path = directory / f"{number:02d}__{name}"
+        stored_path.write_bytes(data)
+        if os.name == "posix":
+            stored_path.chmod(0o600)
 
     return len(accepted), []
 
