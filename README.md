@@ -1,5 +1,7 @@
 # MailFlow
 
+[![CI](https://github.com/amanullahjappa2-creator/auto-email-sender/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/amanullahjappa2-creator/auto-email-sender/actions/workflows/ci.yml)
+
 **A Web-Based Email Automation Platform Built with Python and Flask**
 
 MailFlow is a web-based email automation application designed to simplify email composition, recipient management, and email delivery through SMTP.
@@ -194,6 +196,12 @@ Never commit `.env`, the `instance/` directory, local contact or sending CSVs, d
 MailFlow is a personal software project being developed incrementally.
 
 The current implementation includes account authentication, email settings, message composition, SMTP sending, a dashboard, email history, saved contacts, reusable templates, and scheduled delivery.
+
+Run the automated security and application tests locally with:
+
+```bash
+python -m unittest discover --start-directory tests --verbose
+```
 
 ## Future Goals
 
