@@ -29,6 +29,9 @@ each other's addresses.
   account. Templates load into Compose for editing before sending.
 - **Scheduled email:** Queue a message for a future time, review its status,
   and cancel it before delivery. A separate scheduler worker must be running.
+- **Workspace search:** Search your own contacts, email history, scheduled
+  messages, and templates from the top-bar search or with `Ctrl+K` (`Cmd+K` on
+  macOS). Search results are account-scoped and capped at 25 per category.
 - **Activity and insights:** View your dashboard, delivery statistics, recent
   activity, and up to 200 recent email-history records.
 - **Light and dark themes:** Choose a theme in the interface; the preference is
@@ -106,11 +109,32 @@ Available environment settings:
 | `MAIL_SETTINGS_ENCRYPTION_KEY` | Yes | — | Fernet key used to encrypt saved SMTP credentials. |
 | `COOKIE_SECURE` | No | `1` | Enables `Secure` session cookies. Keep enabled over HTTPS. For local HTTP development only, set `COOKIE_SECURE=0` in `.env`. |
 | `APP_TIMEZONE` | No | `Asia/Karachi` | Time zone used to display dates and interpret scheduled send times. |
+| `ADMIN_EMAILS` | No | — | Comma-separated bootstrap admin account emails; keep this to the primary owner account. |
+| `PRIMARY_ADMIN_EMAIL` | No | — | Registered primary admin email that receives every admin-grant verification code. |
 | `DATABASE_URL` | No | Local SQLite database | SQLAlchemy database connection URL. |
 | `FLASK_DEBUG` | No | `0` | Set to `1` only for local development. Never enable debug mode in production. |
 
 The `.env` file is loaded by the application and ignored by Git. VS Code
 terminal auto-loading of `.env` is disabled in the repository settings.
+
+Set both `ADMIN_EMAILS` and `PRIMARY_ADMIN_EMAIL` in your private `.env` file
+to the already registered primary owner's account email, then restart the app.
+Keep the bootstrap list limited to the owner; additional admins should be
+granted from **Admin panel** instead of editing code or environment settings.
+Only signed-in allowlisted admins can open `/admin`.
+
+The panel shows account-wide usage totals and daily anonymous browser-session
+counts. It also lets admins view basic account details and suspend/reactivate
+non-admin accounts. It never displays SMTP credentials or email contents.
+Suspension blocks sign-in and sending; reactivation restores access. To grant
+another admin, enter the email of an existing MailFlow account. A six-digit
+single-use code is sent to `PRIMARY_ADMIN_EMAIL` using that account's
+configured SMTP settings. The code expires after 10 minutes, has a
+five-attempt limit, and resends are rate-limited. Verified grants can be
+revoked from the panel; the environment bootstrap admin cannot be revoked
+there. Visitor counts are estimates of distinct browser sessions per day, not
+people; IP addresses are not stored and anonymous daily records are retained
+for 90 days.
 
 ### 3. Start the web app
 

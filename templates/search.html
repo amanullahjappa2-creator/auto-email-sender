@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Search | MailFlow Studio{% endblock %}
+
+{% block content %}
+<div class="search-page">
+  <header class="search-head">
+    <div>
+      <p class="search-eyebrow">YOUR WORKSPACE</p>
+      <h1>Search</h1>
+      <p>Find contacts, email activity, scheduled messages, and templates.</p>
+    </div>
+  </header>
+
+  {% if error %}
+  <div class="notice notice-error" role="alert">{{ error }}</div>
+  {% elif not query %}
+  <section class="panel search-empty" aria-labelledby="search-empty-title">
+    <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></span>
+    <h2 id="search-empty-title">Search your workspace</h2>
+    <p>Enter a name, email address, subject, or keyword in the search bar above.</p>
+  </section>
+  {% else %}
+  {% set total = results.contacts|length + results.emails|length + results.scheduled|length + results.templates|length %}
+  <p class="search-summary">
+    {% if total %}Showing matches for <strong>{{ query }}</strong> (up to 25 per section).{% else %}No matches found for <strong>{{ query }}</strong>.{% endif %}
+  </p>
+
+  {% if total %}
+  <div class="search-results">
+    {% if results.contacts %}
+    <section class="panel search-group" aria-labelledby="contacts-results-title">
+      <div class="panel-head">
+        <div><h2 id="contacts-results-title">Contacts</h2><p>{{ results.contacts|length }} result(s)</p></div>
+        <a class="link-btn" href="{{ url_for('contacts') }}">View contacts</a>
+      </div>
+      <ul class="search-list">
+        {% for contact in results.contacts %}
+        <li class="search-result">
+          <span class="search-result-icon"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg></span>
+          <span class="search-result-copy"><strong>{{ contact.name or contact.email }}</strong><small>{{ contact.email }}</small></span>
+          <a class="btn btn-quiet" href="{{ url_for('compose', contact=contact.id) }}">Compose</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if results.emails %}
+    <section class="panel search-group" aria-labelledby="email-results-title">
+      <div class="panel-head">
+        <div><h2 id="email-results-title">Email history</h2><p>{{ results.emails|length }} result(s)</p></div>
+        <a class="link-btn" href="{{ url_for('history') }}">View history</a>
+      </div>
+      <ul class="search-list">
+        {% for item in results.emails %}
+        <li class="search-result">
+          <span class="search-result-icon"><svg class="icon" aria-hidden="true"><use href="#i-mail"/></svg></span>
+          <span class="search-result-copy"><strong>{{ item.subject }}</strong><small>{{ item.recipient }} · {{ item.sent_at|local_time("%d %b %Y, %I:%M %p") }}</small></span>
+          {% set kind = item.status|lower if item.status|lower in ("sent", "failed", "scheduled") else "other" %}
+          <span class="badge badge-{{ kind }}">{{ item.status|capitalize }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if results.scheduled %}
+    <section class="panel search-group" aria-labelledby="scheduled-results-title">
+      <div class="panel-head">
+        <div><h2 id="scheduled-results-title">Scheduled emails</h2><p>{{ results.scheduled|length }} result(s)</p></div>
+        <a class="link-btn" href="{{ url_for('scheduled') }}">View schedule</a>
+      </div>
+      <ul class="search-list">
+        {% for item in results.scheduled %}
+        <li class="search-result">
+          <span class="search-result-icon"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg></span>
+          <span class="search-result-copy"><strong>{{ item.subject }}</strong><small>{{ item.recipient }} · {{ item.scheduled_for|local_time("%d %b %Y, %I:%M %p") }}</small></span>
+          {% set kind = "scheduled" if item.status in ("scheduled", "sending") else item.status|lower %}
+          <span class="badge badge-{{ kind }}">{{ item.status|capitalize }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if results.templates %}
+    <section class="panel search-group" aria-labelledby="template-results-title">
+      <div class="panel-head">
+        <div><h2 id="template-results-title">Templates</h2><p>{{ results.templates|length }} result(s)</p></div>
+        <a class="link-btn" href="{{ url_for('templates_list') }}">View templates</a>
+      </div>
+      <ul class="search-list">
+        {% for item in results.templates %}
+        <li class="search-result">
+          <span class="search-result-icon"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg></span>
+          <span class="search-result-copy"><strong>{{ item.name }}</strong><small>{{ item.subject }} · {{ item.body|striptags|truncate(100, True, "...") }}</small></span>
+          <a class="btn btn-quiet" href="{{ url_for('compose', template=item.id) }}">Use template</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+  {% else %}
+  <section class="panel search-empty" aria-labelledby="no-results-title">
+    <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></span>
+    <h2 id="no-results-title">No matching results</h2>
+    <p>Try another name, email address, subject, or keyword.</p>
+  </section>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

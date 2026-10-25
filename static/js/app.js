@@ -102,12 +102,5 @@
       }
     });
 
-    search.addEventListener("keydown", function (event) {
-      if (event.key === "Enter") {
-        toast(
-          "Search will work once there are emails and contacts to look through."
-        );
-      }
-    });
   }
 })();

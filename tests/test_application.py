@@ -4,7 +4,9 @@ import os
 import re
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 
 _TEST_DIRECTORY = tempfile.TemporaryDirectory(prefix="mailflow-tests-")
@@ -28,7 +30,17 @@ os.environ["COOKIE_SECURE"] = "1"
 
 import app as mailflow_app
 from add_sample_templates import SAMPLE_TEMPLATES, add_sample_templates
-from models import Contact, EmailLog, User, db
+from models import (
+    AdminGrant,
+    AdminVerification,
+    Contact,
+    EmailLog,
+    ScheduledEmail,
+    SiteVisitor,
+    User,
+    UserSuspension,
+    db,
+)
 from template_models import EmailTemplate
 
 application = mailflow_app.app
@@ -54,9 +66,16 @@ def tearDownModule():
 
 class ApplicationSecurityTests(unittest.TestCase):
     def setUp(self):
+        application.config["ADMIN_EMAILS"] = frozenset()
+        application.config["PRIMARY_ADMIN_EMAIL"] = ""
         with application.app_context():
+            AdminVerification.query.delete()
+            AdminGrant.query.delete()
+            UserSuspension.query.delete()
             EmailLog.query.delete()
+            ScheduledEmail.query.delete()
             Contact.query.delete()
+            SiteVisitor.query.delete()
             EmailTemplate.query.delete()
             User.query.delete()
             db.session.commit()
@@ -93,6 +112,16 @@ class ApplicationSecurityTests(unittest.TestCase):
             raise AssertionError(f"Test user login failed: {response.status_code}")
         return client
 
+    def admin_csrf_token(self, client):
+        page = client.get("/admin", base_url="https://localhost")
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"',
+            page.data,
+        )
+        if not token:
+            raise AssertionError("Admin page did not render a CSRF token.")
+        return token.group(1).decode()
+
     def test_private_and_source_files_are_not_served(self):
         client = application.test_client()
         protected_paths = (
@@ -111,11 +140,275 @@ class ApplicationSecurityTests(unittest.TestCase):
 
     def test_authenticated_pages_require_login(self):
         client = application.test_client()
-        for path in ("/", "/contacts", "/scheduled", "/compose", "/history"):
+        for path in (
+            "/",
+            "/contacts",
+            "/scheduled",
+            "/compose",
+            "/history",
+            "/search",
+            "/admin",
+        ):
             with self.subTest(path=path):
                 response = client.get(path)
                 self.assertEqual(response.status_code, 302)
                 self.assertIn("/login", response.headers["Location"])
+
+    def test_anonymous_visits_count_once_per_browser_per_day(self):
+        first_browser = application.test_client()
+        first_browser.get("/login", base_url="https://localhost")
+        first_browser.get("/register", base_url="https://localhost")
+        with application.app_context():
+            self.assertEqual(SiteVisitor.query.count(), 1)
+
+        second_browser = application.test_client()
+        second_browser.get("/login", base_url="https://localhost")
+        with application.app_context():
+            self.assertEqual(SiteVisitor.query.count(), 2)
+
+    def test_admin_dashboard_is_allowlisted_and_only_shows_aggregates(self):
+        admin_id = self.create_user("admin@example.test")
+        user_id = self.create_user("private-user@example.test")
+        application.config["ADMIN_EMAILS"] = frozenset({"admin@example.test"})
+
+        ordinary_client = self.authenticated_client(user_id)
+        self.assertEqual(ordinary_client.get("/admin").status_code, 404)
+        admin_client = self.authenticated_client(admin_id)
+
+        with application.app_context():
+            SiteVisitor.query.delete()
+            today = mailflow_app.local_now().date()
+            db.session.add_all(
+                [
+                    SiteVisitor(visit_date=today, visitor_hash="a" * 64),
+                    SiteVisitor(visit_date=today, visitor_hash="b" * 64),
+                    EmailLog(
+                        user_id=user_id,
+                        recipient="recipient@example.test",
+                        subject="Confidential subject",
+                        status="sent",
+                    ),
+                    EmailLog(
+                        user_id=user_id,
+                        recipient="recipient@example.test",
+                        subject="Failed confidential subject",
+                        status="failed",
+                    ),
+                    Contact(
+                        user_id=user_id,
+                        name="Private contact",
+                        email="private-contact@example.test",
+                    ),
+                    ScheduledEmail(
+                        user_id=user_id,
+                        recipient="recipient@example.test",
+                        subject="Private scheduled subject",
+                        body="Private body",
+                        scheduled_for=datetime.now(timezone.utc) + timedelta(days=1),
+                    ),
+                ]
+            )
+            db.session.commit()
+
+        response = admin_client.get("/admin")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Visitors today", response.data)
+        self.assertIn(b"Registered accounts", response.data)
+        self.assertIn(b"Daily visitor sessions", response.data)
+        self.assertIn(b"Admin panel", response.data)
+        self.assertIn(b"<dd class=\"stat-num\">2</dd>", response.data)
+        self.assertIn(
+            b"<dt>Registered accounts</dt>\n      <dd class=\"stat-num\">2</dd>",
+            response.data,
+        )
+        self.assertIn(
+            b"<dt>Emails sent</dt>\n      <dd class=\"stat-num\">1</dd>",
+            response.data,
+        )
+        self.assertIn(
+            b"<dt>Scheduled emails</dt>\n      <dd class=\"stat-num\">1</dd>",
+            response.data,
+        )
+        self.assertIn(
+            b"<dt>Saved contacts</dt>\n      <dd class=\"stat-num\">1</dd>",
+            response.data,
+        )
+        self.assertIn(b"private-user@example.test", response.data)
+        self.assertNotIn(b"Confidential subject", response.data)
+        self.assertNotIn(b"Private contact", response.data)
+
+    def test_admin_grant_requires_email_code_and_can_be_managed_in_ui(self):
+        admin_id = self.create_user("admin@example.test")
+        target_id = self.create_user("new-admin@example.test")
+        application.config["ADMIN_EMAILS"] = frozenset({"admin@example.test"})
+        application.config["PRIMARY_ADMIN_EMAIL"] = "admin@example.test"
+        client = self.authenticated_client(admin_id)
+        token = self.admin_csrf_token(client)
+
+        with patch.object(mailflow_app, "send_admin_verification_code") as send_code:
+            invite_response = client.post(
+                "/admin/admins/invite",
+                base_url="https://localhost",
+                headers={"Referer": "https://localhost/admin"},
+                data={"csrf_token": token, "email": "new-admin@example.test"},
+            )
+        self.assertEqual(invite_response.status_code, 302)
+        send_code.assert_called_once()
+        self.assertEqual(send_code.call_args.args[1], "admin@example.test")
+        code = send_code.call_args.args[2]
+        self.assertRegex(code, r"^\d{6}$")
+        with application.app_context():
+            challenge = AdminVerification.query.one()
+            self.assertNotIn(code, challenge.code_digest)
+            self.assertFalse(challenge.consumed)
+
+        verification_response = client.post(
+            "/admin/admins/verify",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/admin"},
+            data={
+                "csrf_token": token,
+                "email": "new-admin@example.test",
+                "code": code,
+            },
+        )
+        self.assertEqual(verification_response.status_code, 302)
+        with application.app_context():
+            self.assertEqual(AdminGrant.query.one().email, "new-admin@example.test")
+            self.assertTrue(AdminVerification.query.one().consumed)
+
+        new_admin_client = self.authenticated_client(target_id)
+        self.assertEqual(new_admin_client.get("/admin").status_code, 200)
+        with application.app_context():
+            grant = AdminGrant.query.one()
+            grant_id = grant.id
+        revoke_response = client.post(
+            f"/admin/admins/{grant_id}/revoke",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/admin"},
+            data={"csrf_token": token},
+        )
+        self.assertEqual(revoke_response.status_code, 302)
+        self.assertEqual(new_admin_client.get("/admin").status_code, 404)
+
+    def test_admin_can_suspend_and_reactivate_non_admin_accounts(self):
+        admin_id = self.create_user("admin@example.test")
+        target_id = self.create_user("user@example.test")
+        application.config["ADMIN_EMAILS"] = frozenset({"admin@example.test"})
+        admin_client = self.authenticated_client(admin_id)
+        target_client = self.authenticated_client(target_id)
+        token = self.admin_csrf_token(admin_client)
+
+        suspended = admin_client.post(
+            f"/admin/users/{target_id}/suspension",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/admin"},
+            data={"csrf_token": token, "action": "suspend"},
+        )
+        self.assertEqual(suspended.status_code, 302)
+        self.assertEqual(target_client.get("/", base_url="https://localhost").status_code, 302)
+        with application.app_context():
+            with self.assertRaisesRegex(ValueError, "suspended"):
+                mailflow_app.send_compose_emails(
+                    target_id,
+                    ["recipient@example.test"],
+                    "Test",
+                    "Body",
+                )
+
+        reactivated = admin_client.post(
+            f"/admin/users/{target_id}/suspension",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/admin"},
+            data={"csrf_token": token, "action": "reactivate"},
+        )
+        self.assertEqual(reactivated.status_code, 302)
+        self.assertEqual(target_client.get("/", base_url="https://localhost").status_code, 200)
+
+    def test_admin_can_search_and_page_through_all_registered_accounts(self):
+        admin_id = self.create_user("admin@example.test")
+        application.config["ADMIN_EMAILS"] = frozenset({"admin@example.test"})
+        with application.app_context():
+            db.session.add_all(
+                [
+                    User(
+                        full_name=f"Directory Member {index:03d}",
+                        email=f"member-{index:03d}@example.test",
+                        password_hash="test-only-unused-hash",
+                    )
+                    for index in range(51)
+                ]
+            )
+            db.session.commit()
+
+        client = self.authenticated_client(admin_id)
+        first_page = client.get("/admin")
+        self.assertEqual(first_page.status_code, 200)
+        self.assertIn(b"52 registered account(s)", first_page.data)
+        self.assertIn(b"Page 1 / 2", first_page.data)
+        self.assertNotIn(b"member-000@example.test", first_page.data)
+
+        second_page = client.get("/admin?page=2")
+        self.assertEqual(second_page.status_code, 200)
+        self.assertIn(b"member-000@example.test", second_page.data)
+
+        search_result = client.get("/admin?q=member-050")
+        self.assertEqual(search_result.status_code, 200)
+        self.assertIn(b"1 matching account(s)", search_result.data)
+        self.assertIn(b"member-050@example.test", search_result.data)
+        self.assertNotIn(b"member-049@example.test", search_result.data)
+
+    def test_admin_verification_code_locks_after_five_wrong_attempts(self):
+        admin_id = self.create_user("admin@example.test")
+        self.create_user("target@example.test")
+        application.config["ADMIN_EMAILS"] = frozenset({"admin@example.test"})
+        application.config["PRIMARY_ADMIN_EMAIL"] = "admin@example.test"
+        client = self.authenticated_client(admin_id)
+        token = self.admin_csrf_token(client)
+
+        with patch.object(mailflow_app, "send_admin_verification_code"):
+            sent = client.post(
+                "/admin/admins/invite",
+                base_url="https://localhost",
+                headers={"Referer": "https://localhost/admin"},
+                data={"csrf_token": token, "email": "target@example.test"},
+            )
+        self.assertEqual(sent.status_code, 302)
+
+        for _ in range(mailflow_app.ADMIN_CODE_MAX_ATTEMPTS):
+            response = client.post(
+                "/admin/admins/verify",
+                base_url="https://localhost",
+                headers={"Referer": "https://localhost/admin"},
+                data={
+                    "csrf_token": token,
+                    "email": "target@example.test",
+                    "code": "000000",
+                },
+            )
+            self.assertEqual(response.status_code, 302)
+
+        with application.app_context():
+            challenge = AdminVerification.query.one()
+            self.assertTrue(challenge.consumed)
+            self.assertEqual(challenge.attempts, mailflow_app.ADMIN_CODE_MAX_ATTEMPTS)
+            self.assertEqual(AdminGrant.query.count(), 0)
+
+    def test_favicon_and_dashboard_stat_icons_render(self):
+        login_page = application.test_client().get("/login")
+        self.assertIn(b'rel="icon"', login_page.data)
+
+        favicon = application.test_client().get("/static/favicon.svg")
+        self.assertEqual(favicon.status_code, 200)
+        self.assertIn(b"<svg", favicon.data)
+        favicon.close()
+
+        user_id = self.create_user("dashboard@example.test")
+        dashboard = self.authenticated_client(user_id).get("/")
+        self.assertEqual(dashboard.status_code, 200)
+        for icon in (b"i-send", b"i-clock", b"i-users", b"i-alert"):
+            with self.subTest(icon=icon):
+                self.assertIn(icon, dashboard.data)
 
     def test_login_rejects_posts_without_csrf_token(self):
         response = application.test_client().post(
@@ -172,6 +465,99 @@ class ApplicationSecurityTests(unittest.TestCase):
         self.assertNotIn(b"second-contact@example.test", contacts.data)
         self.assertIn(b"first-recipient@example.test", history.data)
         self.assertNotIn(b"second-recipient@example.test", history.data)
+
+    def test_search_is_scoped_and_contact_result_prefills_compose(self):
+        first_id = self.create_user("search-first@example.test")
+        second_id = self.create_user("search-second@example.test")
+        with application.app_context():
+            first_contact = Contact(
+                user_id=first_id,
+                name="Needle Contact",
+                email="needle-contact@example.test",
+            )
+            db.session.add_all(
+                [
+                    first_contact,
+                    Contact(
+                        user_id=second_id,
+                        name="Needle Private Contact",
+                        email="private-needle@example.test",
+                    ),
+                    EmailLog(
+                        user_id=first_id,
+                        recipient="recipient@example.test",
+                        subject="Needle project update",
+                        status="sent",
+                    ),
+                    EmailLog(
+                        user_id=second_id,
+                        recipient="private@example.test",
+                        subject="Needle private email",
+                        status="sent",
+                    ),
+                    ScheduledEmail(
+                        user_id=first_id,
+                        recipient="scheduled@example.test",
+                        subject="Needle scheduled message",
+                        body="Private schedule body",
+                        scheduled_for=datetime.now(timezone.utc),
+                    ),
+                    EmailTemplate(
+                        user_id=first_id,
+                        name="Needle template",
+                        subject="Welcome",
+                        body="A reusable message",
+                    ),
+                    EmailTemplate(
+                        user_id=second_id,
+                        name="Needle private template",
+                        subject="Private",
+                        body="Not for this user",
+                    ),
+                ]
+            )
+            db.session.commit()
+            first_contact_id = first_contact.id
+
+        client = self.authenticated_client(first_id)
+        response = client.get("/search?q=needle", base_url="https://localhost")
+        self.assertEqual(response.status_code, 200)
+        for own_result in (
+            b"Needle Contact",
+            b"Needle project update",
+            b"Needle scheduled message",
+            b"Needle template",
+        ):
+            with self.subTest(result=own_result):
+                self.assertIn(own_result, response.data)
+        for private_result in (
+            b"Needle Private Contact",
+            b"Needle private email",
+            b"Needle private template",
+        ):
+            with self.subTest(result=private_result):
+                self.assertNotIn(private_result, response.data)
+
+        literal_wildcard = client.get("/search?q=%25", base_url="https://localhost")
+        self.assertIn(b"No matches found for", literal_wildcard.data)
+        self.assertNotIn(b"Searchable Contact", literal_wildcard.data)
+
+        compose_response = client.get(
+            f"/compose?contact={first_contact_id}",
+            base_url="https://localhost",
+        )
+        self.assertEqual(compose_response.status_code, 200)
+        self.assertIn(b"needle-contact@example.test", compose_response.data)
+
+        with application.app_context():
+            private_contact_id = (
+                Contact.query.filter_by(user_id=second_id).one().id
+            )
+        private_compose_response = client.get(
+            f"/compose?contact={private_contact_id}",
+            base_url="https://localhost",
+        )
+        self.assertNotIn(b"private-needle@example.test", private_compose_response.data)
 
     def test_login_cookie_uses_secure_flags(self):
         user_id = self.create_user("login@example.test")

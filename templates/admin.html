@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Admin panel | MailFlow Studio{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+  <header class="admin-heading">
+    <span class="admin-heading-icon"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span>
+    <div>
+      <p class="admin-eyebrow">SITE OVERVIEW</p>
+      <h1>Admin panel</h1>
+      <p>Anonymous visitor counts and account-wide usage totals.</p>
+    </div>
+  </header>
+
+  <dl class="stats admin-stats" aria-label="Website and account totals">
+    <div class="stat">
+      <dt>Visitors today</dt>
+      <dd class="stat-num">{{ stats.visitors_today }}</dd>
+      <dd class="stat-note">Unique browser sessions</dd>
+    </div>
+    <div class="stat">
+      <dt>Visitor sessions · 30 days</dt>
+      <dd class="stat-num">{{ stats.visitors_30d }}</dd>
+      <dd class="stat-note">One count per browser each day</dd>
+    </div>
+    <div class="stat">
+      <dt>Registered accounts</dt>
+      <dd class="stat-num">{{ stats.accounts }}</dd>
+      <dd class="stat-note">{{ stats.new_accounts_30d }} created in the last 30 days</dd>
+    </div>
+    <div class="stat">
+      <dt>Emails sent</dt>
+      <dd class="stat-num">{{ stats.emails_sent }}</dd>
+      <dd class="stat-note">{{ stats.emails_failed }} failed</dd>
+    </div>
+    <div class="stat">
+      <dt>Scheduled emails</dt>
+      <dd class="stat-num">{{ stats.scheduled }}</dd>
+      <dd class="stat-note">Waiting or currently sending</dd>
+    </div>
+    <div class="stat">
+      <dt>Saved contacts</dt>
+      <dd class="stat-num">{{ stats.contacts }}</dd>
+      <dd class="stat-note">Across all accounts</dd>
+    </div>
+  </dl>
+
+  <section class="panel admin-visits" aria-labelledby="visits-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="visits-title">Daily visitor sessions</h2>
+        <p>Last 30 days · {{ timezone_name }}</p>
+      </div>
+    </div>
+    {% set peak_visits = daily_visits|map(attribute="count")|max %}
+    {% set scale_max = [peak_visits, 1]|max %}
+    <ol class="admin-visit-list">
+      {% for day in daily_visits %}
+      <li>
+        <time datetime="{{ day.date.isoformat() }}">{{ day.date.strftime("%d %b") }}</time>
+        <progress value="{{ day.count }}" max="{{ scale_max }}" aria-label="{{ day.count }} visitor sessions on {{ day.date.strftime('%d %b %Y') }}"></progress>
+        <span>{{ day.count }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <p class="admin-privacy">
+    <svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>
+    Visitor counts use anonymous browser sessions. IP addresses, email contents, and visitor identities are not shown here. Anonymous daily records are removed after 90 days.
+  </p>
+
+  <section class="panel admin-section" aria-labelledby="admin-access-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="admin-access-title">Administrator access</h2>
+        <p>New admin access requires a one-time code sent to your primary admin email.</p>
+      </div>
+    </div>
+    <div class="admin-section-body">
+      <form class="admin-inline-form" method="post" action="{{ url_for('admin_invite') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="sr-only" for="admin-invite-email">Existing account email</label>
+        <input class="acc-input" id="admin-invite-email" name="email" type="email" maxlength="254" autocomplete="off" placeholder="Existing account email" required>
+        <button class="btn btn-primary" type="submit">Send verification code</button>
+      </form>
+
+      {% if pending_verification %}
+      <form class="admin-inline-form admin-verify-form" method="post" action="{{ url_for('admin_verify_invite') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="email" value="{{ pending_verification.target_email }}">
+        <label class="sr-only" for="admin-verification-code">Six-digit verification code</label>
+        <input class="acc-input" id="admin-verification-code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code sent to your email" required>
+        <button class="btn btn-quiet" type="submit">Verify and grant access</button>
+      </form>
+      <p class="admin-hint">Code sent for <strong>{{ pending_verification.target_email }}</strong>. It expires in 10 minutes; five incorrect attempts invalidate it.</p>
+      {% endif %}
+
+      <h3 class="admin-subheading">Current administrators</h3>
+      <ul class="admin-access-list">
+        {% for user in admin_users %}
+        <li>
+          <span class="admin-user-copy">
+            <strong>{{ user.full_name }}</strong>
+            <small>{{ user.email }}{% if user.email.casefold() in bootstrap_admin_emails %} · Primary admin{% else %} · Verified grant{% endif %}</small>
+          </span>
+          {% for grant in admin_grants if grant.email.casefold() == user.email.casefold() %}
+          <form method="post" action="{{ url_for('admin_revoke', grant_id=grant.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-quiet admin-danger-btn" type="submit">Revoke</button>
+          </form>
+          {% endfor %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel admin-section" aria-labelledby="accounts-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="accounts-title">Accounts</h2>
+        <p>Browse and search every registered email address. SMTP credentials and email content are never shown.</p>
+      </div>
+    </div>
+    <div class="admin-section-body">
+      <form class="admin-inline-form admin-account-search" method="get" action="{{ url_for('admin_dashboard') }}" role="search">
+        <label class="sr-only" for="admin-account-query">Search registered accounts</label>
+        <input class="acc-input" id="admin-account-query" name="q" type="search" maxlength="120" value="{{ account_search }}" placeholder="Search by name or email">
+        <button class="btn btn-quiet" type="submit">Search accounts</button>
+      </form>
+      <p class="admin-hint">
+        {% if account_search %}{{ account_count }} matching account(s).{% else %}{{ account_count }} registered account(s).{% endif %}
+        Showing page {{ account_page }} of {{ total_account_pages }}.
+      </p>
+      <ul class="admin-user-list">
+        {% for user in users %}
+        {% set is_suspended = user.id in suspended_user_ids %}
+        {% set has_admin_access = user.email.casefold() in admin_emails %}
+        <li>
+          <span class="admin-user-copy">
+            <strong>{{ user.full_name }}</strong>
+            <small>{{ user.email }} · Joined {{ user.created_at|local_time("%d %b %Y") }}</small>
+          </span>
+          <span class="admin-user-state">
+            {% if has_admin_access %}<span class="pill pill-admin">Admin</span>{% endif %}
+            <span class="pill {{ 'pill-suspended' if is_suspended else 'pill-ok' }}">{{ "Suspended" if is_suspended else "Active" }}</span>
+          </span>
+          {% if not has_admin_access and user.id != current_user.id %}
+          <form method="post" action="{{ url_for('admin_set_user_suspension', user_id=user.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="{{ 'reactivate' if is_suspended else 'suspend' }}">
+            <button class="btn btn-quiet {{ 'admin-reactivate-btn' if is_suspended else 'admin-danger-btn' }}" type="submit">{{ "Reactivate" if is_suspended else "Suspend" }}</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if total_account_pages > 1 %}
+      <nav class="admin-pagination" aria-label="Account list pages">
+        {% if account_page > 1 %}
+        <a class="btn btn-quiet" href="{{ url_for('admin_dashboard', q=account_search, page=account_page - 1) }}">Previous</a>
+        {% endif %}
+        <span>Page {{ account_page }} / {{ total_account_pages }}</span>
+        {% if account_page < total_account_pages %}
+        <a class="btn btn-quiet" href="{{ url_for('admin_dashboard', q=account_search, page=account_page + 1) }}">Next</a>
+        {% endif %}
+      </nav>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

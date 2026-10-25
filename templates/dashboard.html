@@ -52,22 +52,22 @@
 
 <dl class="stats" aria-label="Email totals">
   <div class="stat">
-    <dt><span class="dot dot-green"></span>Sent</dt>
+    <dt><span class="stat-icon stat-icon-green"><svg class="icon" aria-hidden="true"><use href="#i-send"/></svg></span>Sent</dt>
     <dd class="stat-num">{{ stats.sent }}</dd>
     <dd class="stat-note">{% if stats.sent == 0 %}No emails sent yet{% elif today_sent %}{{ today_sent }} today{% else %}None today{% endif %}</dd>
   </div>
   <div class="stat">
-    <dt><span class="dot dot-blue"></span>Scheduled</dt>
+    <dt><span class="stat-icon stat-icon-blue"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg></span>Scheduled</dt>
     <dd class="stat-num">{{ stats.scheduled }}</dd>
     <dd class="stat-note">{{ "Nothing waiting" if stats.scheduled == 0 else "Waiting for their time" }}</dd>
   </div>
   <div class="stat">
-    <dt><span class="dot dot-ink"></span>Contacts</dt>
+    <dt><span class="stat-icon stat-icon-ink"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg></span>Contacts</dt>
     <dd class="stat-num">{{ stats.contacts }}</dd>
     <dd class="stat-note">{{ "No saved contacts yet" if stats.contacts == 0 else "Saved in your contacts" }}</dd>
   </div>
   <div class="stat">
-    <dt><span class="dot dot-red"></span>Failed</dt>
+    <dt><span class="stat-icon stat-icon-red"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></span>Failed</dt>
     <dd class="stat-num">{{ stats.failed }}</dd>
     <dd class="stat-note">{{ "Nothing to fix" if stats.failed == 0 else "Needs your attention" }}</dd>
   </div>

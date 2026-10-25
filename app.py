@@ -2,9 +2,12 @@
 """MailFlow Studio - multi-user Flask application."""
 
 import csv
+import hashlib
+import hmac
 import io
 import os
 import re
+import secrets
 import smtplib
 import ssl
 import sys
@@ -21,6 +24,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    session,
     url_for,
 )
 from flask_login import (
@@ -30,12 +34,24 @@ from flask_login import (
     login_user,
     logout_user,
 )
+from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from config import BASE_DIR, DATABASE_PATH, INSTANCE_DIR, Config
-from models import Contact, db, EmailLog, ScheduledEmail, User
+from models import (
+    AdminGrant,
+    AdminVerification,
+    Contact,
+    db,
+    EmailLog,
+    ScheduledEmail,
+    SiteVisitor,
+    User,
+    UserSuspension,
+)
 from security import encrypt_secret, decrypt_secret
 from compose_tools import (
     ACCEPT_ATTRIBUTE,
@@ -86,6 +102,11 @@ MAX_BODY = 20_000
 MAX_RECIPIENT_FIELD = 5_000
 MAX_TEMPLATES = 50
 MAX_TEMPLATE_NAME = 80
+SITE_VISITOR_SESSION_KEY = "_site_visitor_id"
+SITE_VISITOR_RETENTION_DAYS = 90
+ADMIN_CODE_TTL_SECONDS = 10 * 60
+ADMIN_CODE_RESEND_SECONDS = 60
+ADMIN_CODE_MAX_ATTEMPTS = 5
 
 EMAIL_RE = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+"
@@ -98,9 +119,79 @@ EMAIL_RE = re.compile(
 def load_user(user_id):
     """Load the authenticated user from the database."""
     try:
-        return db.session.get(User, int(user_id))
+        user = db.session.get(User, int(user_id))
+        if user and db.session.get(UserSuspension, user.id):
+            return None
+        return user
     except (TypeError, ValueError):
         return None
+
+
+def admin_email_allowlist():
+    """Combine environment bootstrap admins and verified database grants."""
+    granted_emails = db.session.query(AdminGrant.email).all()
+    return app.config["ADMIN_EMAILS"] | {
+        email.casefold() for (email,) in granted_emails
+    }
+
+
+def is_admin_user():
+    """Check whether the current account is explicitly allowlisted."""
+    return (
+        current_user.is_authenticated
+        and current_user.email.casefold() in admin_email_allowlist()
+    )
+
+
+def require_admin():
+    if not is_admin_user():
+        abort(404)
+
+
+def admin_code_digest(admin_user_id, target_email, code):
+    payload = f"admin-invite:{admin_user_id}:{target_email}:{code}"
+    return hmac.new(
+        app.config["SECRET_KEY"].encode(),
+        payload.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def send_admin_verification_code(admin_user, recipient_email, code):
+    """Send an admin-grant code to the configured primary admin."""
+    if not admin_user.mail_address or not admin_user.encrypted_app_password:
+        raise ValueError("Configure the primary admin's SMTP settings first.")
+    if not validate_email_address(admin_user.mail_address):
+        raise ValueError("The primary admin's configured sender address is invalid.")
+    if (
+        not admin_user.smtp_host
+        or not isinstance(admin_user.smtp_port, int)
+        or not 1 <= admin_user.smtp_port <= 65535
+    ):
+        raise ValueError("The primary admin's SMTP configuration is invalid.")
+
+    password = decrypt_secret(admin_user.encrypted_app_password)
+    message = EmailMessage()
+    message["From"] = admin_user.mail_address
+    message["To"] = recipient_email
+    message["Subject"] = "MailFlow admin access verification"
+    message.set_content(
+        "A request was made to grant administrator access to a MailFlow account.\n\n"
+        f"Your verification code is: {code}\n\n"
+        "This code expires in 10 minutes and can only be used once. "
+        "If you did not request this, ignore this email."
+    )
+
+    with smtplib.SMTP_SSL(
+        admin_user.smtp_host,
+        admin_user.smtp_port,
+        context=ssl.create_default_context(),
+        timeout=20,
+    ) as server:
+        server.login(admin_user.mail_address, password)
+        refused = server.send_message(message)
+    if recipient_email in refused:
+        raise RuntimeError("SMTP server refused the admin verification email.")
 
 
 @app.context_processor
@@ -115,7 +206,57 @@ def shared_template_context():
         "full_name": name,
         "initial": name[:1].upper(),
         "year": local_now().year,
+        "is_admin": is_admin_user(),
     }
+
+
+@app.after_request
+def record_site_visit(response):
+    """Count successful HTML page visits without storing IP or account data."""
+    if (
+        request.method != "GET"
+        or request.endpoint in {"static", "admin_dashboard"}
+        or not 200 <= response.status_code < 300
+        or response.mimetype != "text/html"
+    ):
+        return response
+
+    visitor_id = session.get(SITE_VISITOR_SESSION_KEY)
+    if visitor_id is None:
+        visitor_id = secrets.token_urlsafe(32)
+        session[SITE_VISITOR_SESSION_KEY] = visitor_id
+
+    visit_date = local_now().date()
+    visitor_hash = hmac.new(
+        app.config["SECRET_KEY"].encode(),
+        f"{visit_date.isoformat()}:{visitor_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    try:
+        existing_visit = SiteVisitor.query.filter_by(
+            visit_date=visit_date,
+            visitor_hash=visitor_hash,
+        ).first()
+        if existing_visit is None:
+            db.session.add(
+                SiteVisitor(
+                    visit_date=visit_date,
+                    visitor_hash=visitor_hash,
+                )
+            )
+            db.session.query(SiteVisitor).filter(
+                SiteVisitor.visit_date
+                < visit_date - timedelta(days=SITE_VISITOR_RETENTION_DAYS)
+            ).delete(synchronize_session=False)
+            db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+    except SQLAlchemyError:
+        db.session.rollback()
+        app.logger.exception("Could not record anonymous site visit.")
+
+    return response
 
 
 @app.after_request
@@ -383,6 +524,9 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
     """Send individual messages using the specified user's SMTP credentials."""
     user = db.session.get(User, user_id)
 
+    if user and db.session.get(UserSuspension, user.id):
+        raise ValueError("This account is suspended and cannot send email.")
+
     if not user or not user.mail_address or not user.encrypted_app_password:
         raise ValueError(
             "Your sending account is not configured. Open Settings and "
@@ -626,6 +770,9 @@ def login():
         user = User.query.filter_by(email=email).first()
 
         if user and user.check_password(password):
+            if db.session.get(UserSuspension, user.id):
+                flash("This account is suspended. Contact the site administrator.", "error")
+                return render_template("login.html")
             login_user(user)
             destination = request.args.get("next", "")
 
@@ -699,6 +846,288 @@ def settings():
 
 
 # ---------------- Dashboard ----------------
+
+@app.route("/admin")
+@login_required
+def admin_dashboard():
+    if not is_admin_user():
+        abort(404)
+
+    today = local_now().date()
+    first_day = today - timedelta(days=29)
+    visitor_rows = (
+        db.session.query(SiteVisitor.visit_date, func.count(SiteVisitor.id))
+        .filter(SiteVisitor.visit_date >= first_day)
+        .group_by(SiteVisitor.visit_date)
+        .all()
+    )
+    visitor_counts = {
+        visit_date: count for visit_date, count in visitor_rows
+    }
+    daily_visits = [
+        {
+            "date": first_day + timedelta(days=offset),
+            "count": visitor_counts.get(first_day + timedelta(days=offset), 0),
+        }
+        for offset in range(30)
+    ]
+    recent_accounts_since = datetime.now(timezone.utc) - timedelta(days=30)
+
+    stats = {
+        "visitors_today": visitor_counts.get(today, 0),
+        "visitors_30d": sum(visitor_counts.values()),
+        "accounts": User.query.count(),
+        "new_accounts_30d": User.query.filter(
+            User.created_at >= recent_accounts_since
+        ).count(),
+        "emails_sent": EmailLog.query.filter_by(status="sent").count(),
+        "emails_failed": EmailLog.query.filter_by(status="failed").count(),
+        "scheduled": ScheduledEmail.query.filter(
+            ScheduledEmail.status.in_(("scheduled", "sending"))
+        ).count(),
+        "contacts": Contact.query.count(),
+    }
+    account_query = User.query
+    account_search = request.args.get("q", "").strip()[:120]
+    if account_search:
+        escaped_search = (
+            account_search.replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+        account_query = account_query.filter(
+            or_(
+                User.email.ilike(f"%{escaped_search}%", escape="\\"),
+                User.full_name.ilike(f"%{escaped_search}%", escape="\\"),
+            )
+        )
+    accounts_per_page = 50
+    account_count = account_query.count()
+    total_account_pages = max(
+        1,
+        (account_count + accounts_per_page - 1) // accounts_per_page,
+    )
+    account_page = request.args.get("page", 1, type=int) or 1
+    account_page = min(max(account_page, 1), total_account_pages)
+    users = (
+        account_query.order_by(User.created_at.desc(), User.id.desc())
+        .offset((account_page - 1) * accounts_per_page)
+        .limit(accounts_per_page)
+        .all()
+    )
+    suspended_user_ids = {
+        user_id for (user_id,) in db.session.query(UserSuspension.user_id).all()
+    }
+    admin_emails = admin_email_allowlist()
+    admin_users = User.query.filter(User.email.in_(admin_emails)).all()
+    current_epoch = int(time.time())
+    pending_verification = (
+        AdminVerification.query.filter_by(
+            admin_user_id=current_user.id,
+            consumed=False,
+        )
+        .filter(AdminVerification.expires_at > current_epoch)
+        .order_by(AdminVerification.created_at.desc())
+        .first()
+    )
+
+    return render_template(
+        "admin.html",
+        stats=stats,
+        daily_visits=daily_visits,
+        timezone_name=APP_TIMEZONE_NAME,
+        users=users,
+        account_search=account_search,
+        account_page=account_page,
+        total_account_pages=total_account_pages,
+        account_count=account_count,
+        suspended_user_ids=suspended_user_ids,
+        admin_emails=admin_emails,
+        admin_users=admin_users,
+        bootstrap_admin_emails=app.config["ADMIN_EMAILS"],
+        admin_grants=AdminGrant.query.order_by(AdminGrant.created_at.desc()).all(),
+        pending_verification=pending_verification,
+    )
+
+
+@app.route("/admin/admins/invite", methods=["POST"])
+@login_required
+def admin_invite():
+    require_admin()
+
+    target_email = request.form.get("email", "").strip().casefold()
+    target_user = User.query.filter_by(email=target_email).first()
+    if not validate_email_address(target_email) or not target_user:
+        flash("Enter the email of an existing MailFlow account.", "error")
+        return redirect(url_for("admin_dashboard"))
+    if target_email in admin_email_allowlist():
+        flash("That account already has administrator access.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    now = int(time.time())
+    recent_challenge = (
+        AdminVerification.query.filter_by(admin_user_id=current_user.id)
+        .filter(
+            AdminVerification.created_at
+            > now - ADMIN_CODE_RESEND_SECONDS
+        )
+        .first()
+    )
+    if recent_challenge:
+        flash("Please wait before requesting another verification code.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    AdminVerification.query.filter(
+        AdminVerification.admin_user_id == current_user.id,
+        AdminVerification.consumed.is_(False),
+    ).update({"consumed": True}, synchronize_session=False)
+    db.session.query(AdminVerification).filter(
+        AdminVerification.created_at < now - 24 * 60 * 60
+    ).delete(synchronize_session=False)
+    challenge = AdminVerification(
+        admin_user_id=current_user.id,
+        target_email=target_email,
+        code_digest=admin_code_digest(current_user.id, target_email, code),
+        expires_at=now + ADMIN_CODE_TTL_SECONDS,
+        created_at=now,
+    )
+    db.session.add(challenge)
+    db.session.commit()
+
+    primary_email = app.config["PRIMARY_ADMIN_EMAIL"]
+    primary_admin = User.query.filter_by(email=primary_email).first()
+    if not primary_admin or primary_email not in app.config["ADMIN_EMAILS"]:
+        challenge.consumed = True
+        db.session.commit()
+        flash("The primary admin email is not configured correctly.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    try:
+        send_admin_verification_code(primary_admin, primary_email, code)
+    except (RuntimeError, ValueError, OSError, smtplib.SMTPException):
+        app.logger.exception("Admin verification email could not be sent.")
+        challenge.consumed = True
+        db.session.commit()
+        flash(
+            "The verification email could not be sent. Check the primary admin's SMTP settings.",
+            "error",
+        )
+        return redirect(url_for("admin_dashboard"))
+    flash("A verification code was sent to the primary admin email.", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/admins/verify", methods=["POST"])
+@login_required
+def admin_verify_invite():
+    require_admin()
+
+    target_email = request.form.get("email", "").strip().casefold()
+    code = request.form.get("code", "").strip()
+    challenge = (
+        AdminVerification.query.filter_by(
+            admin_user_id=current_user.id,
+            target_email=target_email,
+            consumed=False,
+        )
+        .order_by(AdminVerification.created_at.desc())
+        .first()
+    )
+    now = int(time.time())
+    if (
+        not challenge
+        or challenge.expires_at <= now
+        or challenge.attempts >= ADMIN_CODE_MAX_ATTEMPTS
+    ):
+        flash("The verification code expired or is no longer available.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    is_valid_code = bool(re.fullmatch(r"\d{6}", code))
+    if is_valid_code:
+        expected_digest = admin_code_digest(current_user.id, target_email, code)
+        is_valid_code = hmac.compare_digest(challenge.code_digest, expected_digest)
+    if not is_valid_code:
+        challenge.attempts += 1
+        if challenge.attempts >= ADMIN_CODE_MAX_ATTEMPTS:
+            challenge.consumed = True
+        db.session.commit()
+        flash("The verification code is incorrect.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    target_user = User.query.filter_by(email=target_email).first()
+    if not target_user:
+        challenge.consumed = True
+        db.session.commit()
+        flash("That account no longer exists.", "error")
+        return redirect(url_for("admin_dashboard"))
+    if target_email in admin_email_allowlist():
+        challenge.consumed = True
+        db.session.commit()
+        flash("That account already has administrator access.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    db.session.add(
+        AdminGrant(
+            email=target_email,
+            granted_by_user_id=current_user.id,
+        )
+    )
+    challenge.consumed = True
+    db.session.commit()
+    flash("Administrator access has been granted.", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/admins/<int:grant_id>/revoke", methods=["POST"])
+@login_required
+def admin_revoke(grant_id):
+    require_admin()
+
+    grant = db.session.get(AdminGrant, grant_id)
+    if not grant:
+        abort(404)
+    if grant.email.casefold() == current_user.email.casefold():
+        flash("You cannot revoke your own administrator access.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    db.session.delete(grant)
+    db.session.commit()
+    flash("Administrator access has been revoked.", "success")
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/users/<int:user_id>/suspension", methods=["POST"])
+@login_required
+def admin_set_user_suspension(user_id):
+    require_admin()
+
+    user = db.session.get(User, user_id)
+    if not user:
+        abort(404)
+    if user.id == current_user.id or user.email.casefold() in admin_email_allowlist():
+        flash("Administrator accounts cannot be suspended from this panel.", "error")
+        return redirect(url_for("admin_dashboard"))
+
+    suspension = db.session.get(UserSuspension, user.id)
+    action = request.form.get("action")
+    if action == "suspend" and not suspension:
+        db.session.add(
+            UserSuspension(
+                user_id=user.id,
+                suspended_by_user_id=current_user.id,
+            )
+        )
+        db.session.commit()
+        flash("The account has been suspended.", "success")
+    elif action == "reactivate" and suspension:
+        db.session.delete(suspension)
+        db.session.commit()
+        flash("The account has been reactivated.", "success")
+    else:
+        abort(400)
+    return redirect(url_for("admin_dashboard"))
+
 
 @app.route("/")
 @login_required
@@ -1075,6 +1504,18 @@ def compose():
 
     if request.method == "GET":
         # No email is sent by a GET request.
+        contact_id = request.args.get("contact", type=int)
+        if contact_id:
+            chosen_contact = Contact.query.filter_by(
+                id=contact_id,
+                user_id=current_user.id,
+            ).first()
+            if chosen_contact:
+                form["recipient"] = chosen_contact.email
+                notice = f'Contact "{chosen_contact.name or chosen_contact.email}" added to the recipient list.'
+            else:
+                notice = "That contact could not be found."
+
         template_id = request.args.get("template", type=int)
         if template_id:
             chosen = EmailTemplate.query.filter_by(
@@ -1331,6 +1772,86 @@ def template_delete(template_id):
 
 
 # ---------------- Email history ----------------
+
+@app.route("/search")
+@login_required
+def search():
+    query = request.args.get("q", "").strip()
+    results = {
+        "contacts": [],
+        "emails": [],
+        "scheduled": [],
+        "templates": [],
+    }
+    error = None
+
+    if len(query) > 120:
+        error = "Search terms must be 120 characters or fewer."
+    elif query:
+        pattern = (
+            "%"
+            + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            + "%"
+        )
+        results["contacts"] = (
+            Contact.query.filter_by(user_id=current_user.id)
+            .filter(
+                or_(
+                    Contact.name.ilike(pattern, escape="\\"),
+                    Contact.email.ilike(pattern, escape="\\"),
+                )
+            )
+            .order_by(Contact.name, Contact.email)
+            .limit(25)
+            .all()
+        )
+        results["emails"] = (
+            EmailLog.query.filter_by(user_id=current_user.id)
+            .filter(
+                or_(
+                    EmailLog.recipient.ilike(pattern, escape="\\"),
+                    EmailLog.subject.ilike(pattern, escape="\\"),
+                    EmailLog.status.ilike(pattern, escape="\\"),
+                )
+            )
+            .order_by(EmailLog.id.desc())
+            .limit(25)
+            .all()
+        )
+        results["scheduled"] = (
+            ScheduledEmail.query.filter_by(user_id=current_user.id)
+            .filter(
+                or_(
+                    ScheduledEmail.recipient.ilike(pattern, escape="\\"),
+                    ScheduledEmail.subject.ilike(pattern, escape="\\"),
+                    ScheduledEmail.status.ilike(pattern, escape="\\"),
+                )
+            )
+            .order_by(ScheduledEmail.scheduled_for.desc())
+            .limit(25)
+            .all()
+        )
+        results["templates"] = (
+            EmailTemplate.query.filter_by(user_id=current_user.id)
+            .filter(
+                or_(
+                    EmailTemplate.name.ilike(pattern, escape="\\"),
+                    EmailTemplate.subject.ilike(pattern, escape="\\"),
+                    EmailTemplate.body.ilike(pattern, escape="\\"),
+                )
+            )
+            .order_by(EmailTemplate.updated_at.desc(), EmailTemplate.name)
+            .limit(25)
+            .all()
+        )
+
+    return render_template(
+        "search.html",
+        query=query,
+        results=results,
+        error=error,
+    )
+
 
 @app.route("/history")
 @login_required

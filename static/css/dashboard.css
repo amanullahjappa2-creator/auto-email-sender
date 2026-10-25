@@ -95,6 +95,27 @@
 .hero-date time { color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
 .hero-date .zone { color: var(--muted); font-size: 12px; letter-spacing: 0.04em; }
 
+/* ---------- Dashboard statistic icons ---------- */
+.stat dt { gap: 10px; }
+
+.stat-icon {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--stat-icon-color) 20%, var(--line));
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--stat-icon-color) 12%, var(--surface));
+  color: var(--stat-icon-color);
+}
+
+.stat-icon .icon { width: 16px; height: 16px; }
+.stat-icon-green { --stat-icon-color: var(--green); }
+.stat-icon-blue { --stat-icon-color: var(--accent); }
+.stat-icon-ink { --stat-icon-color: var(--ink); }
+.stat-icon-red { --stat-icon-color: var(--red); }
+
 /* ---------- Delivery ring ---------- */
 .delivery {
   display: flex;

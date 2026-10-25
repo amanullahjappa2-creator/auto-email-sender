@@ -35,6 +35,15 @@ class Config:
     )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    ADMIN_EMAILS = frozenset(
+        email.strip().casefold()
+        for email in os.environ.get("ADMIN_EMAILS", "").split(",")
+        if email.strip()
+    )
+    PRIMARY_ADMIN_EMAIL = os.environ.get(
+        "PRIMARY_ADMIN_EMAIL",
+        "",
+    ).strip().casefold()
 
     MAX_CONTENT_LENGTH = 15 * 1024 * 1024
 

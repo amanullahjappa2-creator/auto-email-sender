@@ -65,6 +65,77 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 
+class SiteVisitor(db.Model):
+    """One anonymous browser session counted per local calendar day."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    visit_date = db.Column(db.Date, nullable=False, index=True)
+    visitor_hash = db.Column(db.String(64), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "visit_date",
+            "visitor_hash",
+            name="uq_site_visitor_date_hash",
+        ),
+    )
+
+
+class AdminGrant(db.Model):
+    """An administrator granted through the verified admin interface."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(254), unique=True, nullable=False, index=True)
+    granted_by_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class AdminVerification(db.Model):
+    """A short-lived, one-use code challenge for granting admin access."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    admin_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    target_email = db.Column(db.String(254), nullable=False)
+    code_digest = db.Column(db.String(64), nullable=False)
+    expires_at = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.Integer, nullable=False, index=True)
+    attempts = db.Column(db.Integer, nullable=False, default=0)
+    consumed = db.Column(db.Boolean, nullable=False, default=False)
+
+
+class UserSuspension(db.Model):
+    """An administrator-suspended account, without altering the user schema."""
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    suspended_by_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    suspended_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
 class EmailLog(db.Model):
     """Email activity belonging to one specific user."""
 
