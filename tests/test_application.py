@@ -636,15 +636,17 @@ class ApplicationSecurityTests(unittest.TestCase):
             def quit(self):
                 pass
 
-        ssl_server = FakeServer()
         starttls_server = FakeServer()
 
-        def fail_ssl_login(*args, **kwargs):
-            raise smtplib.SMTPException("ssl down")
-
-        ssl_server.login = fail_ssl_login
-
-        with patch.object(mailflow_app.smtplib, "SMTP_SSL", return_value=ssl_server), patch.object(mailflow_app.smtplib, "SMTP", return_value=starttls_server) as smtp_factory:
+        with patch.object(
+            mailflow_app.smtplib,
+            "SMTP_SSL",
+            side_effect=OSError("SSL unavailable"),
+        ), patch.object(
+            mailflow_app.smtplib,
+            "SMTP",
+            return_value=starttls_server,
+        ) as smtp_factory:
             returned = mailflow_app.open_smtp_connection(
                 "sender@example.test",
                 "secret",
@@ -656,6 +658,40 @@ class ApplicationSecurityTests(unittest.TestCase):
         self.assertTrue(starttls_server.started_tls)
         self.assertTrue(starttls_server.logged_in)
         smtp_factory.assert_called_once_with("smtp.example.test", 587, timeout=20)
+
+    def test_smtp_does_not_send_credentials_without_starttls(self):
+        class FakeServer:
+            login_called = False
+            quit_called = False
+
+            def ehlo(self):
+                pass
+
+            def has_extn(self, extension):
+                return False
+
+            def login(self, username, password):
+                self.login_called = True
+
+            def quit(self):
+                self.quit_called = True
+
+        server = FakeServer()
+        with patch.object(
+            mailflow_app.smtplib,
+            "SMTP_SSL",
+            side_effect=OSError("SSL unavailable"),
+        ), patch.object(mailflow_app.smtplib, "SMTP", return_value=server):
+            with self.assertRaises(smtplib.SMTPNotSupportedError):
+                mailflow_app.open_smtp_connection(
+                    "sender@example.test",
+                    "secret",
+                    "smtp.example.test",
+                    587,
+                )
+
+        self.assertFalse(server.login_called)
+        self.assertTrue(server.quit_called)
 
     def test_compose_accepts_display_name_and_email_recipient_format(self):
         recipients, errors = mailflow_app.check_compose(

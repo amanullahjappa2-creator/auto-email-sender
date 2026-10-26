@@ -166,20 +166,29 @@ def open_smtp_connection(sender_address, password, smtp_host, smtp_port):
             context=ssl.create_default_context(),
             timeout=20,
         )
-        server.login(sender_address, password)
-        return server
     except (OSError, smtplib.SMTPException):
-        pass
+        server = None
+    else:
+        try:
+            server.login(sender_address, password)
+            return server
+        except (OSError, smtplib.SMTPException):
+            try:
+                server.quit()
+            except Exception:
+                pass
+            raise
 
     server = None
     try:
         server = smtplib.SMTP(smtp_host, smtp_port, timeout=20)
-        if hasattr(server, "ehlo"):
-            server.ehlo()
-        if hasattr(server, "has_extn") and server.has_extn("STARTTLS"):
-            server.starttls(context=ssl.create_default_context())
-            if hasattr(server, "ehlo"):
-                server.ehlo()
+        server.ehlo()
+        if not server.has_extn("STARTTLS"):
+            raise smtplib.SMTPNotSupportedError(
+                "The SMTP server does not support STARTTLS."
+            )
+        server.starttls(context=ssl.create_default_context())
+        server.ehlo()
         server.login(sender_address, password)
         return server
     except (OSError, smtplib.SMTPException):
