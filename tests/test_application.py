@@ -657,6 +657,17 @@ class ApplicationSecurityTests(unittest.TestCase):
         self.assertTrue(starttls_server.logged_in)
         smtp_factory.assert_called_once_with("smtp.example.test", 587, timeout=20)
 
+    def test_compose_accepts_display_name_and_email_recipient_format(self):
+        recipients, errors = mailflow_app.check_compose(
+            {
+                "recipient": "Test User <hello@example.test>, second@example.test",
+                "subject": "Hello",
+                "body": "Message body",
+            }
+        )
+        self.assertEqual(recipients, ["hello@example.test", "second@example.test"])
+        self.assertEqual(errors, [])
+
     def test_sample_templates_are_detailed_and_refresh_existing_samples(self):
         user_id = self.create_user("templates@example.test")
         self.assertEqual(len(SAMPLE_TEMPLATES), 10)

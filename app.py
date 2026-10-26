@@ -484,6 +484,18 @@ def validate_email_address(address):
     )
 
 
+def normalize_recipient(address):
+    """Accept common "Name <email@example.com>" input and normalize whitespace."""
+    candidate = (address or "").strip()
+    if not candidate:
+        return ""
+
+    match = re.search(r"<([^<>]+)>", candidate)
+    if match:
+        candidate = match.group(1).strip()
+    return candidate
+
+
 def check_compose(form):
     """Validate the recipients, subject and message."""
     errors = []
@@ -499,7 +511,7 @@ def check_compose(form):
         seen = set()
 
         for item in re.split(r"[,;\n]+", raw):
-            address = item.strip()
+            address = normalize_recipient(item)
             if not address:
                 continue
 
