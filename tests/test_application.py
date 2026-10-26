@@ -831,6 +831,19 @@ class ApplicationSecurityTests(unittest.TestCase):
             succeeding = db.session.get(ScheduledEmail, succeeding_id)
             self.assertEqual(succeeding.status, "sent")
 
+    def test_one_shot_scheduler_processes_one_batch_and_returns_count(self):
+        with patch.object(
+            mailflow_app,
+            "process_due_schedules",
+            return_value=3,
+        ) as process:
+            with patch("builtins.print") as print_output:
+                processed = mailflow_app.run_scheduler_once()
+
+        self.assertEqual(processed, 3)
+        process.assert_called_once_with()
+        print_output.assert_called_once_with("Processed 3 scheduled email(s).")
+
     def test_compose_accepts_display_name_and_email_recipient_format(self):
         recipients, errors = mailflow_app.check_compose(
             {

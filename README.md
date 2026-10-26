@@ -165,6 +165,12 @@ python app.py
 python app.py --scheduler
 ```
 
+To process a single batch of up to 20 due messages and then exit, run:
+
+```bash
+python app.py --scheduler-once
+```
+
 Open <http://127.0.0.1:5000>, create an account, then open **Email Settings**
 to add your sending account. Gmail users should use an App Password, not their
 normal Gmail password. The default SMTP server is `smtp.gmail.com` on SSL port

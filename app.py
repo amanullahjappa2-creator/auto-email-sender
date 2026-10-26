@@ -798,6 +798,15 @@ def run_scheduler():
         time.sleep(15)
 
 
+def run_scheduler_once():
+    """Process one batch of due emails and exit."""
+    with app.app_context():
+        processed = process_due_schedules()
+    app.logger.info("One-shot scheduler processed %s scheduled email(s).", processed)
+    print(f"Processed {processed} scheduled email(s).")
+    return processed
+
+
 # ---------------- Authentication ----------------
 
 @app.route("/register", methods=["GET", "POST"])
@@ -1951,7 +1960,9 @@ with app.app_context():
 
 
 if __name__ == "__main__":
-    if "--scheduler" in sys.argv[1:]:
+    if "--scheduler-once" in sys.argv[1:]:
+        run_scheduler_once()
+    elif "--scheduler" in sys.argv[1:]:
         run_scheduler()
     else:
         app.run(
