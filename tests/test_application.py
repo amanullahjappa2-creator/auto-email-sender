@@ -790,6 +790,47 @@ class ApplicationSecurityTests(unittest.TestCase):
                 "scheduled",
             )
 
+    def test_scheduler_marks_unexpected_delivery_error_failed_and_continues(self):
+        user_id = self.create_user("scheduler-errors@example.test")
+        now = datetime.now(timezone.utc)
+        with application.app_context():
+            failed_schedule = ScheduledEmail(
+                user_id=user_id,
+                recipient="first@example.test",
+                subject="First subject",
+                body="First message",
+                scheduled_for=now - timedelta(minutes=2),
+            )
+            succeeding_schedule = ScheduledEmail(
+                user_id=user_id,
+                recipient="second@example.test",
+                subject="Second subject",
+                body="Second message",
+                scheduled_for=now - timedelta(minutes=1),
+            )
+            db.session.add_all([failed_schedule, succeeding_schedule])
+            db.session.commit()
+            failed_id = failed_schedule.id
+            succeeding_id = succeeding_schedule.id
+
+            with patch.object(
+                mailflow_app,
+                "send_compose_emails",
+                side_effect=[
+                    RuntimeError("unexpected delivery failure"),
+                    [("second@example.test", "sent")],
+                ],
+            ) as send:
+                processed = mailflow_app.process_due_schedules()
+
+            self.assertEqual(processed, 2)
+            self.assertEqual(send.call_count, 2)
+            failed = db.session.get(ScheduledEmail, failed_id)
+            self.assertEqual(failed.status, "failed")
+            self.assertIn("outcome could not be confirmed", failed.error_message)
+            succeeding = db.session.get(ScheduledEmail, succeeding_id)
+            self.assertEqual(succeeding.status, "sent")
+
     def test_compose_accepts_display_name_and_email_recipient_format(self):
         recipients, errors = mailflow_app.check_compose(
             {

@@ -765,6 +765,20 @@ def process_due_schedules():
                 save_email_log(schedule.user_id, recipient, schedule.subject, "failed")
             schedule.status = "failed"
             schedule.error_message = str(exc)[:255]
+        except Exception:
+            app.logger.exception(
+                "Unexpected error while delivering scheduled email %s.",
+                schedule.id,
+            )
+            db.session.rollback()
+            schedule = db.session.get(ScheduledEmail, schedule_id)
+            if schedule is None:
+                continue
+            schedule.status = "failed"
+            schedule.error_message = (
+                "Delivery outcome could not be confirmed. Check email history "
+                "before retrying."
+            )
 
         db.session.commit()
         processed += 1
