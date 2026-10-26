@@ -744,6 +744,52 @@ class ApplicationSecurityTests(unittest.TestCase):
                 3,
             )
 
+    def test_scheduler_processes_due_email_and_leaves_future_email_queued(self):
+        user_id = self.create_user("scheduled-sender@example.test")
+        now = datetime.now(timezone.utc)
+        with application.app_context():
+            due_schedule = ScheduledEmail(
+                user_id=user_id,
+                recipient="due@example.test",
+                subject="Due subject",
+                body="Due message",
+                scheduled_for=now - timedelta(minutes=1),
+            )
+            future_schedule = ScheduledEmail(
+                user_id=user_id,
+                recipient="future@example.test",
+                subject="Future subject",
+                body="Future message",
+                scheduled_for=now + timedelta(minutes=1),
+            )
+            db.session.add_all([due_schedule, future_schedule])
+            db.session.commit()
+            due_id = due_schedule.id
+            future_id = future_schedule.id
+
+            with patch.object(
+                mailflow_app,
+                "send_compose_emails",
+                return_value=[("due@example.test", "sent")],
+            ) as send:
+                processed = mailflow_app.process_due_schedules()
+
+            self.assertEqual(processed, 1)
+            send.assert_called_once_with(
+                user_id,
+                ["due@example.test"],
+                "Due subject",
+                "Due message",
+            )
+            self.assertEqual(
+                db.session.get(ScheduledEmail, due_id).status,
+                "sent",
+            )
+            self.assertEqual(
+                db.session.get(ScheduledEmail, future_id).status,
+                "scheduled",
+            )
+
     def test_compose_accepts_display_name_and_email_recipient_format(self):
         recipients, errors = mailflow_app.check_compose(
             {

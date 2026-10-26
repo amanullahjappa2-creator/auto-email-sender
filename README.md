@@ -136,10 +136,32 @@ there. Visitor counts are estimates of distinct browser sessions per day, not
 people; IP addresses are not stored and anonymous daily records are retained
 for 90 days.
 
-### 3. Start the web app
+### 3. Start the web app and scheduled-email worker
+
+On Windows, start both required processes from PowerShell in the project
+directory:
+
+```powershell
+.\start_mailflow.ps1
+```
+
+The script starts the web app and one scheduler worker as separate processes
+and prints both process IDs. Keep both running while using the app. Stop them
+when finished with the printed command, for example:
+
+```powershell
+Stop-Process -Id 1234, 5678
+```
+
+On macOS/Linux, or if you prefer to start processes manually, use two terminals
+with the same virtual environment and project directory:
 
 ```bash
 python app.py
+```
+
+```bash
+python app.py --scheduler
 ```
 
 Open <http://127.0.0.1:5000>, create an account, then open **Email Settings**
@@ -149,14 +171,6 @@ normal Gmail password. The default SMTP server is `smtp.gmail.com` on SSL port
 
 The local server binds to `127.0.0.1` and is intended for development, not
 direct public exposure.
-
-### 4. Run the scheduled-email worker
-
-Start a second terminal, activate the same virtual environment, and run:
-
-```bash
-python app.py --scheduler
-```
 
 The worker polls for due messages every 15 seconds. Keep exactly one worker
 running for an application instance and keep it running for scheduled delivery.
