@@ -607,6 +607,7 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
 
     results = []
     server = None
+    connection_lost = False
 
     try:
         server = open_smtp_connection(user.mail_address, password, host, port)
@@ -638,6 +639,10 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
             try:
                 refused = server.send_message(message)
                 status = "failed" if recipient in refused else "sent"
+            except (smtplib.SMTPServerDisconnected, OSError):
+                app.logger.exception("SMTP connection was lost during email delivery.")
+                status = "failed"
+                connection_lost = True
             except Exception:
                 app.logger.exception("Email delivery attempt failed.")
                 status = "failed"
@@ -645,6 +650,15 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
             results.append((recipient, status))
             save_email_log(user_id, recipient, subject, status)
             db.session.commit()
+            if connection_lost:
+                break
+
+        processed = {recipient for recipient, _status in results}
+        for recipient in recipients:
+            if recipient not in processed:
+                results.append((recipient, "failed"))
+                save_email_log(user_id, recipient, subject, "failed")
+        db.session.commit()
 
     except ValueError:
         db.session.rollback()

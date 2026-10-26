@@ -693,6 +693,57 @@ class ApplicationSecurityTests(unittest.TestCase):
         self.assertFalse(server.login_called)
         self.assertTrue(server.quit_called)
 
+    def test_sending_stops_after_smtp_connection_is_lost(self):
+        class DisconnectedServer:
+            send_calls = 0
+
+            def send_message(self, message):
+                self.send_calls += 1
+                raise smtplib.SMTPServerDisconnected("connection lost")
+
+            def quit(self):
+                pass
+
+        user_id = self.create_user("sender@example.test")
+        server = DisconnectedServer()
+        with application.app_context():
+            user = db.session.get(User, user_id)
+            user.mail_address = "sender@example.test"
+            user.encrypted_app_password = "encrypted"
+            user.smtp_host = "smtp.example.test"
+            user.smtp_port = 465
+            db.session.commit()
+
+            with patch.object(mailflow_app, "decrypt_secret", return_value="secret"), patch.object(
+                mailflow_app,
+                "open_smtp_connection",
+                return_value=server,
+            ):
+                results = mailflow_app.send_compose_emails(
+                    user_id,
+                    [
+                        "first@example.test",
+                        "second@example.test",
+                        "third@example.test",
+                    ],
+                    "Subject",
+                    "Body",
+                )
+
+            self.assertEqual(
+                results,
+                [
+                    ("first@example.test", "failed"),
+                    ("second@example.test", "failed"),
+                    ("third@example.test", "failed"),
+                ],
+            )
+            self.assertEqual(server.send_calls, 1)
+            self.assertEqual(
+                EmailLog.query.filter_by(user_id=user_id, status="failed").count(),
+                3,
+            )
+
     def test_compose_accepts_display_name_and_email_recipient_format(self):
         recipients, errors = mailflow_app.check_compose(
             {
