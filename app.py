@@ -157,6 +157,40 @@ def admin_code_digest(admin_user_id, target_email, code):
     ).hexdigest()
 
 
+def open_smtp_connection(sender_address, password, smtp_host, smtp_port):
+    """Open a mail server connection using SSL first and STARTTLS as fallback."""
+    try:
+        server = smtplib.SMTP_SSL(
+            smtp_host,
+            smtp_port,
+            context=ssl.create_default_context(),
+            timeout=20,
+        )
+        server.login(sender_address, password)
+        return server
+    except (OSError, smtplib.SMTPException):
+        pass
+
+    server = None
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=20)
+        if hasattr(server, "ehlo"):
+            server.ehlo()
+        if hasattr(server, "has_extn") and server.has_extn("STARTTLS"):
+            server.starttls(context=ssl.create_default_context())
+            if hasattr(server, "ehlo"):
+                server.ehlo()
+        server.login(sender_address, password)
+        return server
+    except (OSError, smtplib.SMTPException):
+        if server is not None:
+            try:
+                server.quit()
+            except Exception:
+                pass
+        raise
+
+
 def send_admin_verification_code(admin_user, recipient_email, code):
     """Send an admin-grant code to the configured primary admin."""
     if not admin_user.mail_address or not admin_user.encrypted_app_password:
@@ -182,13 +216,12 @@ def send_admin_verification_code(admin_user, recipient_email, code):
         "If you did not request this, ignore this email."
     )
 
-    with smtplib.SMTP_SSL(
+    with open_smtp_connection(
+        admin_user.mail_address,
+        password,
         admin_user.smtp_host,
         admin_user.smtp_port,
-        context=ssl.create_default_context(),
-        timeout=20,
     ) as server:
-        server.login(admin_user.mail_address, password)
         refused = server.send_message(message)
     if recipient_email in refused:
         raise RuntimeError("SMTP server refused the admin verification email.")
@@ -555,13 +588,7 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
     server = None
 
     try:
-        server = smtplib.SMTP_SSL(
-            host,
-            port,
-            context=ssl.create_default_context(),
-            timeout=20,
-        )
-        server.login(user.mail_address, password)
+        server = open_smtp_connection(user.mail_address, password, host, port)
 
         for recipient in recipients:
             message = EmailMessage()

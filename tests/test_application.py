@@ -2,6 +2,7 @@
 
 import os
 import re
+import smtplib
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -612,6 +613,49 @@ class ApplicationSecurityTests(unittest.TestCase):
                 for cookie in response.headers.getlist("Set-Cookie")
             )
         )
+
+    def test_smtp_falls_back_to_starttls_when_ssl_connect_fails(self):
+        class FakeServer:
+            def __init__(self):
+                self.started_tls = False
+                self.logged_in = False
+                self.ehlo_calls = 0
+
+            def ehlo(self):
+                self.ehlo_calls += 1
+
+            def has_extn(self, extension):
+                return extension == "STARTTLS"
+
+            def starttls(self, context=None):
+                self.started_tls = True
+
+            def login(self, username, password):
+                self.logged_in = True
+
+            def quit(self):
+                pass
+
+        ssl_server = FakeServer()
+        starttls_server = FakeServer()
+
+        def fail_ssl_login(*args, **kwargs):
+            raise smtplib.SMTPException("ssl down")
+
+        ssl_server.login = fail_ssl_login
+
+        with patch.object(mailflow_app.smtplib, "SMTP_SSL", return_value=ssl_server), patch.object(mailflow_app.smtplib, "SMTP", return_value=starttls_server) as smtp_factory:
+            returned = mailflow_app.open_smtp_connection(
+                "sender@example.test",
+                "secret",
+                "smtp.example.test",
+                587,
+            )
+
+        self.assertIs(returned, starttls_server)
+        self.assertTrue(starttls_server.started_tls)
+        self.assertTrue(starttls_server.logged_in)
+        smtp_factory.assert_called_once_with("smtp.example.test", 587, timeout=20)
 
     def test_sample_templates_are_detailed_and_refresh_existing_samples(self):
         user_id = self.create_user("templates@example.test")
