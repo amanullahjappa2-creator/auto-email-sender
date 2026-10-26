@@ -1,8 +1,15 @@
 $ErrorActionPreference = "Stop"
 
-$pythonCommand = Get-Command python -ErrorAction Stop
-$pythonPath = $pythonCommand.Source
 $projectDirectory = $PSScriptRoot
+$venvPython = Join-Path $projectDirectory ".venv\Scripts\python.exe"
+
+if (Test-Path -LiteralPath $venvPython -PathType Leaf) {
+    $pythonPath = $venvPython
+}
+else {
+    $pythonCommand = Get-Command python -ErrorAction Stop
+    $pythonPath = $pythonCommand.Source
+}
 
 $webProcess = Start-Process `
     -FilePath $pythonPath `
@@ -16,9 +23,22 @@ try {
         -ArgumentList @("app.py", "--scheduler") `
         -WorkingDirectory $projectDirectory `
         -PassThru
+
+    Start-Sleep -Seconds 2
+    $webProcess.Refresh()
+    $schedulerProcess.Refresh()
+    if ($webProcess.HasExited) {
+        throw "The web app exited during startup (exit code $($webProcess.ExitCode))."
+    }
+    if ($schedulerProcess.HasExited) {
+        throw "The scheduler exited during startup (exit code $($schedulerProcess.ExitCode))."
+    }
 }
 catch {
     Stop-Process -Id $webProcess.Id -ErrorAction SilentlyContinue
+    if ($schedulerProcess) {
+        Stop-Process -Id $schedulerProcess.Id -ErrorAction SilentlyContinue
+    }
     throw
 }
 

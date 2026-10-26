@@ -146,8 +146,9 @@ directory:
 ```
 
 The script starts the web app and one scheduler worker as separate processes
-and prints both process IDs. Keep both running while using the app. Stop them
-when finished with the printed command, for example:
+preferring `.venv\Scripts\python.exe` when present, and verifies both remain
+running during startup. It prints both process IDs. Keep both running while
+using the app. Stop them when finished with the printed command, for example:
 
 ```powershell
 Stop-Process -Id 1234, 5678
