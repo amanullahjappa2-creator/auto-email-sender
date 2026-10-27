@@ -52,8 +52,11 @@ clear operational workflow for deployment and maintenance. It includes:
 - a database-backed admin panel with allowlisting and suspension controls
 - health monitoring via `/healthz`
 - secure headers and request-size controls
+- a quick health probe script in [scripts/check_app_health.py](scripts/check_app_health.py)
 - contributor guidance in [CONTRIBUTING.md](CONTRIBUTING.md)
 - a clear security reporting process in [SECURITY.md](SECURITY.md)
+
+For roadmap and future milestones, see [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Requirements
 
