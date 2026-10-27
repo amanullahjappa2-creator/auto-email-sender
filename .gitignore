@@ -39,4 +39,5 @@ dist/
 
 # Editor and local environment state
 .vscode/.env
+.vscode/settings.json
 .idea/
