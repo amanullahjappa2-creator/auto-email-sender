@@ -43,6 +43,18 @@ SMTP server acceptance is not a guarantee that a message reaches the
 recipient's inbox. Delivery can be delayed, filtered, or rejected by the
 recipient's provider.
 
+## Project health and polish
+
+This project is organized around safe defaults, real privacy protections, and
+clear operational workflow for deployment and maintenance. It includes:
+
+- a private `.env` setup for sensitive credentials
+- a database-backed admin panel with allowlisting and suspension controls
+- health monitoring via `/healthz`
+- secure headers and request-size controls
+- contributor guidance in [CONTRIBUTING.md](CONTRIBUTING.md)
+- a clear security reporting process in [SECURITY.md](SECURITY.md)
+
 ## Requirements
 
 - Python 3.11, 3.12, or 3.13
