@@ -139,6 +139,16 @@ class ApplicationSecurityTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(client.get(path).status_code, 404)
 
+    def test_health_check_reports_app_and_database_status(self):
+        client = application.test_client()
+        response = client.get("/healthz")
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["app"], "MailFlow Studio")
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["database"], "ok")
+        self.assertEqual(payload["version"], mailflow_app.APP_VERSION)
+
     def test_authenticated_pages_require_login(self):
         client = application.test_client()
         for path in (

@@ -150,6 +150,15 @@ for 90 days.
 
 ### 3. Start the web app and scheduled-email worker
 
+The app supports host/port overrides with environment variables or command-line
+flags:
+
+```bash
+FLASK_HOST=0.0.0.0 FLASK_PORT=8000 python app.py
+python app.py --host=0.0.0.0 --port=8000
+python app.py --version
+```
+
 On Windows, start both required processes from PowerShell in the project
 directory:
 

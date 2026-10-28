@@ -81,8 +81,12 @@ INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
 if os.name == "posix":
     INSTANCE_DIR.chmod(0o700)
 
+APP_VERSION = "1.2.0"
+
 app = Flask(__name__)
 app.config.from_object(Config)
+app.config["APP_VERSION"] = APP_VERSION
+app.config["APP_NAME"] = "MailFlow Studio"
 
 # Total request size limit. The attachment rules themselves (file count,
 # 10 MB total, allowed types) are enforced in compose_tools.py.
@@ -97,7 +101,6 @@ login_manager.login_message_category = "info"
 login_manager.session_protection = app.config["SESSION_PROTECTION"]
 login_manager.init_app(app)
 
-APP_VERSION = "1.1.0"
 MAX_RECIPIENTS = 120
 MAX_SUBJECT = 200
 MAX_BODY = 20_000
@@ -1991,13 +1994,30 @@ with app.app_context():
 
 
 if __name__ == "__main__":
-    if "--scheduler-once" in sys.argv[1:]:
+    argv = sys.argv[1:]
+    if "--version" in argv:
+        print(f"MailFlow Studio {APP_VERSION}")
+        raise SystemExit(0)
+
+    host = os.environ.get("FLASK_HOST", "127.0.0.1")
+    port = int(os.environ.get("FLASK_PORT", "5000"))
+
+    for item in argv:
+        if item.startswith("--host="):
+            host = item.split("=", 1)[1]
+        elif item.startswith("--port="):
+            try:
+                port = int(item.split("=", 1)[1])
+            except ValueError:
+                raise SystemExit("--port must be an integer.")
+
+    if "--scheduler-once" in argv:
         run_scheduler_once()
-    elif "--scheduler" in sys.argv[1:]:
+    elif "--scheduler" in argv:
         run_scheduler()
     else:
         app.run(
-            host="127.0.0.1",
-            port=5000,
+            host=host,
+            port=port,
             debug=os.environ.get("FLASK_DEBUG") == "1",
         )
