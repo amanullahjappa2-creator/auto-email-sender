@@ -247,42 +247,52 @@ SAMPLE_TEMPLATES = [
 
 
 def add_sample_templates():
-    """Add missing samples and refresh the built-in sample copy."""
+    """Add or refresh the built-in sample templates for every account."""
     with app.app_context():
-        user = User.query.first()
-        if not user:
+        users = User.query.order_by(User.id).all()
+        if not users:
             print("No users found in database. Please create a user first.")
             return
 
-        added_count = 0
-        updated_count = 0
-        unchanged_count = 0
+        total_added = 0
+        total_updated = 0
+        total_unchanged = 0
 
-        for template_data in SAMPLE_TEMPLATES:
-            existing = EmailTemplate.query.filter_by(
-                user_id=user.id,
-                name=template_data["name"],
-            ).first()
+        for user in users:
+            added_count = 0
+            updated_count = 0
+            unchanged_count = 0
+            existing_by_name = {
+                template.name.casefold(): template
+                for template in EmailTemplate.query.filter_by(user_id=user.id).all()
+            }
 
-            if existing is None:
-                db.session.add(
-                    EmailTemplate(
-                        user_id=user.id,
-                        name=template_data["name"],
-                        subject=template_data["subject"],
-                        body=template_data["body"],
+            for template_data in SAMPLE_TEMPLATES:
+                existing = existing_by_name.get(template_data["name"].casefold())
+
+                if existing is None:
+                    db.session.add(
+                        EmailTemplate(
+                            user_id=user.id,
+                            name=template_data["name"],
+                            subject=template_data["subject"],
+                            body=template_data["body"],
+                        )
                     )
-                )
-                added_count += 1
-            elif (
-                existing.subject == template_data["subject"]
-                and existing.body == template_data["legacy_body"]
-            ):
-                existing.subject = template_data["subject"]
-                existing.body = template_data["body"]
-                updated_count += 1
-            else:
-                unchanged_count += 1
+                    added_count += 1
+                elif (
+                    existing.subject == template_data["subject"]
+                    and existing.body == template_data["legacy_body"]
+                ):
+                    existing.subject = template_data["subject"]
+                    existing.body = template_data["body"]
+                    updated_count += 1
+                else:
+                    unchanged_count += 1
+
+            total_added += added_count
+            total_updated += updated_count
+            total_unchanged += unchanged_count
 
         try:
             db.session.commit()
@@ -292,8 +302,8 @@ def add_sample_templates():
 
         print(
             "Sample templates complete: "
-            f"{added_count} added, {updated_count} updated, "
-            f"{unchanged_count} unchanged."
+            f"{total_added} added, {total_updated} updated, "
+            f"{total_unchanged} unchanged across {len(users)} user(s)."
         )
 
 

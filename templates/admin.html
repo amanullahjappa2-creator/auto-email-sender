@@ -35,6 +35,16 @@
       <dd class="stat-note">{{ stats.emails_failed }} failed</dd>
     </div>
     <div class="stat">
+      <dt>Failed emails</dt>
+      <dd class="stat-num">{{ stats.emails_failed }}</dd>
+      <dd class="stat-note">{{ stats.emails_total }} total attempts</dd>
+    </div>
+    <div class="stat">
+      <dt>Total email attempts</dt>
+      <dd class="stat-num">{{ stats.emails_total }}</dd>
+      <dd class="stat-note">{{ stats.emails_sent }} sent · {{ stats.emails_failed }} failed</dd>
+    </div>
+    <div class="stat">
       <dt>Scheduled emails</dt>
       <dd class="stat-num">{{ stats.scheduled }}</dd>
       <dd class="stat-note">Waiting or currently sending</dd>
@@ -61,6 +71,30 @@
         <time datetime="{{ day.date.isoformat() }}">{{ day.date.strftime("%d %b") }}</time>
         <progress value="{{ day.count }}" max="{{ scale_max }}" aria-label="{{ day.count }} visitor sessions on {{ day.date.strftime('%d %b %Y') }}"></progress>
         <span>{{ day.count }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="panel admin-visits" aria-labelledby="email-activity-title">
+    <div class="panel-head">
+      <div>
+        <h2 id="email-activity-title">Email activity</h2>
+        <p>Successes and failures over the last 30 days · {{ timezone_name }}</p>
+      </div>
+    </div>
+    {% set peak_email_sent = daily_email_activity|map(attribute='sent')|list|max|default(0) %}
+    {% set peak_email_failed = daily_email_activity|map(attribute='failed')|list|max|default(0) %}
+    {% set email_scale_max = [peak_email_sent, peak_email_failed, 1]|max %}
+    <ol class="admin-visit-list admin-email-activity-list">
+      {% for day in daily_email_activity %}
+      <li>
+        <time datetime="{{ day.date.isoformat() }}">{{ day.date.strftime("%d %b") }}</time>
+        <div class="email-activity-bars" aria-label="{{ day.sent }} emails sent and {{ day.failed }} failed on {{ day.date.strftime('%d %b %Y') }}">
+          <div class="email-bar sent" style="width: {{ ((day.sent / email_scale_max) * 100) if email_scale_max else 0 }}%"></div>
+          <div class="email-bar failed" style="width: {{ ((day.failed / email_scale_max) * 100) if email_scale_max else 0 }}%"></div>
+        </div>
+        <span>{{ day.sent }} / {{ day.failed }}</span>
       </li>
       {% endfor %}
     </ol>

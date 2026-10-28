@@ -869,6 +869,7 @@ def register():
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
+            ensure_sample_templates_for_user(user.id)
 
             login_user(user)
             flash("Your account has been created. Configure email settings to start sending.", "success")
@@ -992,6 +993,39 @@ def admin_dashboard():
     ]
     recent_accounts_since = datetime.now(timezone.utc) - timedelta(days=30)
 
+    emails_sent = EmailLog.query.filter_by(status="sent").count()
+    emails_failed = EmailLog.query.filter_by(status="failed").count()
+    email_activity_rows = (
+        db.session.query(EmailLog.status, EmailLog.sent_at)
+        .order_by(EmailLog.sent_at.desc())
+        .limit(2500)
+        .all()
+    )
+    email_activity_counts = {}
+    for status, sent_at in email_activity_rows:
+        local_time = to_local(sent_at)
+        local_day = local_time.date() if local_time else sent_at.date()
+        key = local_day.isoformat()
+        bucket = email_activity_counts.setdefault(key, {"sent": 0, "failed": 0})
+        if status == "sent":
+            bucket["sent"] += 1
+        elif status == "failed":
+            bucket["failed"] += 1
+
+    daily_email_activity = [
+        {
+            "date": first_day + timedelta(days=offset),
+            "sent": email_activity_counts.get(
+                (first_day + timedelta(days=offset)).isoformat(),
+                {"sent": 0, "failed": 0},
+            )['sent'],
+            "failed": email_activity_counts.get(
+                (first_day + timedelta(days=offset)).isoformat(),
+                {"sent": 0, "failed": 0},
+            )['failed'],
+        }
+        for offset in range(30)
+    ]
     stats = {
         "visitors_today": visitor_counts.get(today, 0),
         "visitors_30d": sum(visitor_counts.values()),
@@ -999,8 +1033,9 @@ def admin_dashboard():
         "new_accounts_30d": User.query.filter(
             User.created_at >= recent_accounts_since
         ).count(),
-        "emails_sent": EmailLog.query.filter_by(status="sent").count(),
-        "emails_failed": EmailLog.query.filter_by(status="failed").count(),
+        "emails_sent": emails_sent,
+        "emails_failed": emails_failed,
+        "emails_total": emails_sent + emails_failed,
         "scheduled": ScheduledEmail.query.filter(
             ScheduledEmail.status.in_(("scheduled", "sending"))
         ).count(),
@@ -1054,6 +1089,7 @@ def admin_dashboard():
         "admin.html",
         stats=stats,
         daily_visits=daily_visits,
+        daily_email_activity=daily_email_activity,
         timezone_name=APP_TIMEZONE_NAME,
         users=users,
         account_search=account_search,
@@ -1518,8 +1554,54 @@ def clean_body(text):
     return (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
+def ensure_sample_templates_for_user(user_id):
+    """Ensure each account has the built-in starter templates."""
+    from add_sample_templates import SAMPLE_TEMPLATES
+
+    user = db.session.get(User, user_id)
+    if user is None:
+        return []
+
+    existing_by_name = {
+        template.name.casefold(): template
+        for template in EmailTemplate.query.filter_by(user_id=user_id).all()
+    }
+    changed = False
+
+    for template_data in SAMPLE_TEMPLATES:
+        name = template_data["name"]
+        existing = existing_by_name.get(name.casefold())
+        if existing is None:
+            db.session.add(
+                EmailTemplate(
+                    user_id=user_id,
+                    name=name,
+                    subject=template_data["subject"],
+                    body=template_data["body"],
+                )
+            )
+            changed = True
+        elif (
+            existing.subject == template_data["subject"]
+            and existing.body == template_data["legacy_body"]
+        ):
+            existing.subject = template_data["subject"]
+            existing.body = template_data["body"]
+            changed = True
+
+    if changed:
+        db.session.commit()
+
+    return sorted(
+        EmailTemplate.query.filter_by(user_id=user_id).order_by(EmailTemplate.name).all(),
+        key=lambda item: item.name.casefold(),
+    )
+
+
 def user_templates():
     """The logged-in user's templates. Always filtered by user id."""
+    if current_user.is_authenticated:
+        ensure_sample_templates_for_user(current_user.id)
     return (
         EmailTemplate.query.filter_by(user_id=current_user.id)
         .order_by(EmailTemplate.name)

@@ -500,6 +500,10 @@ h1 {
 .admin-visit-list progress::-webkit-progress-bar { border-radius: 999px; background: var(--surface-2); }
 .admin-visit-list progress::-webkit-progress-value { border-radius: 999px; background: var(--accent); }
 .admin-visit-list progress::-moz-progress-bar { border-radius: 999px; background: var(--accent); }
+.admin-email-activity-list .email-activity-bars { display: flex; width: 100%; min-height: 12px; overflow: hidden; border-radius: 999px; background: var(--surface-2); }
+.admin-email-activity-list .email-bar { display: block; height: 12px; }
+.admin-email-activity-list .email-bar.sent { background: var(--green); }
+.admin-email-activity-list .email-bar.failed { background: var(--red); }
 
 .admin-privacy { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); color: var(--muted); font-size: 13px; }
 .admin-privacy .icon { width: 17px; height: 17px; flex: 0 0 17px; color: var(--accent); }
