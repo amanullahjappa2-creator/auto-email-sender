@@ -7,33 +7,44 @@ individual emails, managing contacts, reusing templates, and scheduling
 messages. Each recipient receives a separate email; recipients are not shown
 each other's addresses.
 
+Built by **AmanUllah**.
+
 ## Features
 
 - **Private accounts:** Register, sign in, and manage data scoped to your account.
 - **Personal SMTP settings:** Configure the sending address, sender display
-  name, SMTP host, port, and Gmail App Password for your account.
+  name, SMTP host, port, and SMTP credential for your account. Gmail is the
+  default provider and uses an App Password.
 - **Encrypted credentials:** The saved SMTP App Password is encrypted with
   Fernet before it is stored in the database.
 - **Compose and preview:** Review the subject, message, recipients, and
   attachments before confirming delivery.
 - **Individual delivery:** Send to up to 120 validated recipients, one message
   per recipient.
+- **Recipient lists:** Add addresses from a CSV or TXT file up to 200 KB;
+  duplicate addresses are omitted and invalid addresses are skipped.
 - **Attachments:** Attach up to five PDF, Office, text, CSV, JPG, or PNG files,
-  with a combined size limit of 10 MB. File signatures are checked, and files
-  are held in private draft storage until sending.
+  with a combined size limit of 10 MB. Binary file signatures are checked,
+  and files are held in private draft storage until sending.
 - **Contacts:** Save and delete contacts, select saved contacts while
   composing or scheduling, and import UTF-8 CSV files. Imports accept up to
   500 rows and 1 MB per file; use an `email` or `address` column and an
   optional `name` or `full name` column.
-- **Reusable templates:** Save, update, use, and delete up to 50 templates per
-  account. Templates load into Compose for editing before sending.
+- **Reusable templates:** Every account gets ten built-in starter templates.
+  Create and manage up to 50 templates per account; loading one copies its
+  subject and message into Compose for editing before sending.
 - **Scheduled email:** Queue a message for a future time, review its status,
-  and cancel it before delivery. A separate scheduler worker must be running.
+  and cancel it before delivery. A separate worker polls for due messages
+  every 15 seconds and must be running for scheduled delivery.
 - **Workspace search:** Search your own contacts, email history, scheduled
   messages, and templates from the top-bar search or with `Ctrl+K` (`Cmd+K` on
   macOS). Search results are account-scoped and capped at 25 per category.
 - **Activity and insights:** View your dashboard, delivery statistics, recent
   activity, and up to 200 recent email-history records.
+- **Admin panel:** Allowlisted administrators can view app-wide email totals
+  and daily activity, account counts and basic account details, and suspend or
+  reactivate non-admin accounts. Email content and SMTP credentials are not
+  shown.
 - **Light and dark themes:** Choose a theme in the interface; the preference is
   stored in your browser.
 - **Security protections:** Password hashing, CSRF protection, secure session
@@ -49,7 +60,8 @@ This project is organized around safe defaults, real privacy protections, and
 clear operational workflow for deployment and maintenance. It includes:
 
 - a private `.env` setup for sensitive credentials
-- a database-backed admin panel with allowlisting and suspension controls
+- a database-backed admin panel with admin verification and account
+  suspension controls
 - health monitoring via `/healthz`
 - secure headers and request-size controls
 - a quick health probe script in [scripts/check_app_health.py](scripts/check_app_health.py)
@@ -238,21 +250,22 @@ may be `name` or `full name`. Duplicate, invalid, and excess rows are skipped.
 
 ### Templates
 
-Templates save a name, subject, and message body—not recipients or attachments.
-Loading a template copies its content into Compose so you can edit it and
-preview it before sending. Template placeholders, if present in the message,
-are text for you to edit; contact details are not automatically substituted.
+Every account receives ten built-in starter templates at registration. Loading
+a template copies its name, subject, and message body—not recipients or
+attachments—into Compose. You can edit the content and preview it before
+sending. Placeholders in a template are plain text for you to replace;
+contact details are not automatically substituted. Accounts can hold up to
+50 templates in total.
 
-New accounts start with an empty template list. To add the ten built-in sample
-templates to the first account in a local database, sign in once and run:
+The seeding script is available to add missing starter templates across all
+existing accounts in a database:
 
 ```bash
 python add_sample_templates.py
 ```
 
-The script adds missing samples and refreshes only an unchanged legacy sample
-body; it preserves custom edits. It operates on the first account returned by
-the database, so review the target account before using it on a shared database.
+It adds missing samples and refreshes only an unchanged legacy sample body;
+user-edited sample content is preserved.
 
 ## Optional standalone CSV sender
 
@@ -339,7 +352,7 @@ and pull requests targeting `main`.
 ├── template_models.py        # Saved email-template model
 ├── security.py               # SMTP credential encryption
 ├── compose_tools.py          # Attachment and recipient-file handling
-├── add_sample_templates.py   # Seed or refresh built-in sample templates
+├── add_sample_templates.py   # Seed or refresh samples for all accounts
 ├── send_emails.py            # Standalone command-line email sender
 ├── templates/                # Jinja pages
 ├── static/                   # CSS, JavaScript, and theme assets
