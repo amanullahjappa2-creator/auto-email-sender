@@ -30,8 +30,8 @@ Built by **AmanUllah**.
   composing or scheduling, and import UTF-8 CSV files. Imports accept up to
   500 rows and 1 MB per file; use an `email` or `address` column and an
   optional `name` or `full name` column.
-- **Reusable templates:** Every account gets ten built-in starter templates.
-  Create and manage up to 50 templates per account; loading one copies its
+- **Reusable templates:** Every account gets 20 built-in starter templates.
+  Create and manage up to 60 templates per account; loading one copies its
   subject and message into Compose for editing before sending.
 - **Scheduled email:** Queue a message for a future time, review its status,
   and cancel it before delivery. A separate worker polls for due messages
@@ -250,12 +250,12 @@ may be `name` or `full name`. Duplicate, invalid, and excess rows are skipped.
 
 ### Templates
 
-Every account receives ten built-in starter templates at registration. Loading
+Every account receives 20 built-in starter templates at registration. Loading
 a template copies its name, subject, and message body—not recipients or
 attachments—into Compose. You can edit the content and preview it before
 sending. Placeholders in a template are plain text for you to replace;
 contact details are not automatically substituted. Accounts can hold up to
-50 templates in total.
+60 templates in total.
 
 The seeding script is available to add missing starter templates across all
 existing accounts in a database:

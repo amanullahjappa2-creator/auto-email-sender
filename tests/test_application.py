@@ -867,7 +867,7 @@ class ApplicationSecurityTests(unittest.TestCase):
 
     def test_sample_templates_are_detailed_and_refresh_existing_samples(self):
         user_id = self.create_user("templates@example.test")
-        self.assertEqual(len(SAMPLE_TEMPLATES), 10)
+        self.assertEqual(len(SAMPLE_TEMPLATES), 20)
         for template in SAMPLE_TEMPLATES:
             with self.subTest(template=template["name"]):
                 self.assertGreaterEqual(len(template["body"]), 300)
@@ -888,7 +888,7 @@ class ApplicationSecurityTests(unittest.TestCase):
 
         with application.app_context():
             saved_templates = EmailTemplate.query.filter_by(user_id=user_id).all()
-            self.assertEqual(len(saved_templates), 10)
+            self.assertEqual(len(saved_templates), 20)
             refreshed = EmailTemplate.query.filter_by(
                 user_id=user_id,
                 name=SAMPLE_TEMPLATES[0]["name"],
@@ -907,7 +907,7 @@ class ApplicationSecurityTests(unittest.TestCase):
         add_sample_templates()
 
         with application.app_context():
-            self.assertEqual(EmailTemplate.query.filter_by(user_id=user_id).count(), 10)
+            self.assertEqual(EmailTemplate.query.filter_by(user_id=user_id).count(), 20)
             self.assertEqual(
                 EmailTemplate.query.filter_by(
                     user_id=user_id,

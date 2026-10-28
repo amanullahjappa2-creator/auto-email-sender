@@ -243,6 +243,235 @@ SAMPLE_TEMPLATES = [
             "With gratitude,\n{sender_name}"
         ),
     },
+    {
+        "name": "Appointment Confirmation",
+        "subject": "Your Appointment on {date}",
+        "legacy_body": (
+            "Hi {name},\n\nYour appointment is confirmed for {date} at "
+            "{time}.\n\nLocation: {location}\n\nRegards,\n{sender_name}"
+        ),
+        "body": (
+            "Hi {name},\n\n"
+            "This is a confirmation of your appointment with us. Please keep "
+            "the details below for reference:\n\n"
+            "Date: {date}\n"
+            "Time: {time}\n"
+            "Location or meeting link: {location}\n"
+            "Reason for visit: {appointment_type}\n\n"
+            "If you need to change the time or have questions before the "
+            "appointment, please reply to this message. We would appreciate "
+            "as much notice as possible if you need to reschedule. We look "
+            "forward to speaking with you.\n\n"
+            "Kind regards,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Order Confirmation",
+        "subject": "Order {order_number} Confirmation",
+        "legacy_body": (
+            "Hello {name},\n\nThank you for your order {order_number}. "
+            "We are preparing it now.\n\nRegards,\n{sender_name}"
+        ),
+        "body": (
+            "Hello {name},\n\n"
+            "Thank you for placing an order with us. We have received your "
+            "request and are preparing it for processing.\n\n"
+            "Order number: {order_number}\n"
+            "Order date: {order_date}\n"
+            "Items: {items}\n"
+            "Total: {total}\n"
+            "Delivery details: {delivery_details}\n\n"
+            "Please review the information and let us know promptly if "
+            "anything needs to be corrected. We will send another update "
+            "when the order status changes. If you have a question, reply "
+            "to this email and include your order number.\n\n"
+            "Thank you,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Payment Receipt",
+        "subject": "Receipt for Payment {invoice_number}",
+        "legacy_body": (
+            "Dear {name},\n\nWe received your payment of {amount} on "
+            "{payment_date}.\n\nThank you,\n{sender_name}"
+        ),
+        "body": (
+            "Dear {name},\n\n"
+            "This message confirms that we received your payment. Please "
+            "retain these details for your records:\n\n"
+            "Receipt or invoice number: {invoice_number}\n"
+            "Amount paid: {amount}\n"
+            "Payment date: {payment_date}\n"
+            "Payment method: {payment_method}\n"
+            "Description: {description}\n\n"
+            "If you believe this receipt is incorrect or need a copy in "
+            "another format, please reply and include the invoice number "
+            "above. For your security, do not send full payment-card details "
+            "by email.\n\n"
+            "Thank you for your payment.\n\n"
+            "Regards,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Follow-Up After Meeting",
+        "subject": "Following Up on {meeting_topic}",
+        "legacy_body": (
+            "Hi {name},\n\nThank you for meeting about {meeting_topic}. "
+            "Here are the next steps: {next_steps}\n\nBest,\n{sender_name}"
+        ),
+        "body": (
+            "Hi {name},\n\n"
+            "Thank you for taking the time to meet with me about "
+            "{meeting_topic}. I appreciated the conversation and the "
+            "perspective you shared.\n\n"
+            "To keep things moving, here is a brief summary of the next "
+            "steps we discussed:\n\n"
+            "{next_steps}\n\n"
+            "Please let me know if I missed anything or if you would like "
+            "to adjust the plan. I will follow up again by {follow_up_date} "
+            "with an update. In the meantime, feel free to reply with any "
+            "questions or additional thoughts.\n\n"
+            "Best regards,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Out of Office",
+        "subject": "Out of Office: Returning {return_date}",
+        "legacy_body": (
+            "Hello,\n\nI am away until {return_date}. For urgent matters, "
+            "contact {backup_contact}.\n\nRegards,\n{sender_name}"
+        ),
+        "body": (
+            "Hello,\n\n"
+            "Thank you for your message. I am currently away and expect to "
+            "return on {return_date}. I may not be able to respond until "
+            "then.\n\n"
+            "For assistance while I am away, please contact "
+            "{backup_contact} at {backup_email}. They can help with "
+            "{coverage_details}.\n\n"
+            "I will review your message after I return and respond as soon "
+            "as I can. Thank you for your patience. If your message is "
+            "time-sensitive, please contact the backup person rather than "
+            "sending repeated follow-ups.\n\n"
+            "Best,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Application Received",
+        "subject": "We Received Your {application_type} Application",
+        "legacy_body": (
+            "Dear {name},\n\nWe received your application on {received_date}. "
+            "We will review it and contact you.\n\nRegards,\n{sender_name}"
+        ),
+        "body": (
+            "Dear {name},\n\n"
+            "Thank you for submitting your {application_type} application. "
+            "This message confirms that we received it on {received_date}.\n\n"
+            "Reference number: {reference_number}\n"
+            "Next step: {next_step}\n"
+            "Expected update: {update_date}\n\n"
+            "Our team will review the information provided and contact you "
+            "when there is an update. If you need to add information or "
+            "correct a detail, reply to this email and include your "
+            "reference number. Please avoid sending sensitive documents "
+            "unless we have specifically requested them through an "
+            "appropriate channel.\n\n"
+            "Thank you,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Service Maintenance Notice",
+        "subject": "Planned Maintenance on {maintenance_date}",
+        "legacy_body": (
+            "Hello,\n\nWe will perform maintenance on {service} at "
+            "{maintenance_time}. Some features may be unavailable.\n\n"
+            "Regards,\n{sender_name}"
+        ),
+        "body": (
+            "Hello,\n\n"
+            "We are planning maintenance for {service} to improve "
+            "reliability and performance. The work is scheduled for "
+            "{maintenance_date}, beginning at {maintenance_time} "
+            "({time_zone}).\n\n"
+            "Expected duration: {duration}\n"
+            "Possible impact: {service_impact}\n\n"
+            "During this window, some features may be temporarily unavailable "
+            "or respond more slowly. No action is required from you. We will "
+            "share an update if the schedule changes or the work takes "
+            "longer than expected. Thank you for planning around this "
+            "maintenance window.\n\n"
+            "Regards,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Event Invitation",
+        "subject": "You Are Invited: {event_name}",
+        "legacy_body": (
+            "Hello {name},\n\nPlease join us for {event_name} on {date} "
+            "at {time}. RSVP by {rsvp_date}.\n\nBest,\n{sender_name}"
+        ),
+        "body": (
+            "Hello {name},\n\n"
+            "We would be delighted if you could join us for {event_name}. "
+            "We have planned time to connect, share updates, and hear from "
+            "attendees.\n\n"
+            "Date: {date}\n"
+            "Time: {time}\n"
+            "Location: {location}\n"
+            "RSVP by: {rsvp_date}\n\n"
+            "Please reply to let us know whether you can attend and mention "
+            "any access or dietary requirements we should know about. If "
+            "you cannot make it, you are welcome to send any questions in "
+            "advance. We hope you can be there.\n\n"
+            "Warm regards,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Project Kickoff",
+        "subject": "Project Kickoff: {project_name}",
+        "legacy_body": (
+            "Hi {name},\n\nWe are starting {project_name} on {start_date}. "
+            "Our first meeting is {meeting_time}.\n\nBest,\n{sender_name}"
+        ),
+        "body": (
+            "Hi {name},\n\n"
+            "We are ready to begin work on {project_name}, and I am looking "
+            "forward to working together. The project is scheduled to start "
+            "on {start_date}.\n\n"
+            "Kickoff meeting: {meeting_time}\n"
+            "Project goal: {project_goal}\n"
+            "Initial milestone: {first_milestone}\n"
+            "Shared workspace: {workspace_link}\n\n"
+            "At the kickoff, we will confirm responsibilities, communication "
+            "preferences, and the first set of priorities. Please review "
+            "the available background material before the meeting and reply "
+            "if there is anything important we should add to the agenda.\n\n"
+            "Best,\n{sender_name}"
+        ),
+    },
+    {
+        "name": "Renewal Reminder",
+        "subject": "A Reminder About Your Renewal on {renewal_date}",
+        "legacy_body": (
+            "Hello {name},\n\nYour {service_name} renewal is due on "
+            "{renewal_date}. Contact us with questions.\n\nRegards,\n{sender_name}"
+        ),
+        "body": (
+            "Hello {name},\n\n"
+            "This is a friendly reminder that your {service_name} plan is "
+            "scheduled for renewal on {renewal_date}.\n\n"
+            "Plan: {plan_name}\n"
+            "Renewal date: {renewal_date}\n"
+            "Renewal amount: {renewal_amount}\n"
+            "Account reference: {account_reference}\n\n"
+            "If you would like to review your plan or have questions about "
+            "the renewal, please contact us before that date at "
+            "{support_contact}. No action is needed if you wish to continue "
+            "with your current arrangement. We are happy to help you "
+            "understand the available options.\n\n"
+            "Kind regards,\n{sender_name}"
+        ),
+    },
 ]
 
 
