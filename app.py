@@ -21,6 +21,7 @@ from flask import (
     Flask,
     abort,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -96,6 +97,7 @@ login_manager.login_message_category = "info"
 login_manager.session_protection = app.config["SESSION_PROTECTION"]
 login_manager.init_app(app)
 
+APP_VERSION = "1.1.0"
 MAX_RECIPIENTS = 120
 MAX_SUBJECT = 200
 MAX_BODY = 20_000
@@ -332,9 +334,38 @@ def add_security_headers(response):
     return response
 
 
+@app.route("/healthz")
+def health_check():
+    """Fast health probe for monitor systems and deployment checks."""
+    try:
+        with app.app_context():
+            db.session.execute(db.text("SELECT 1")).scalar()
+        database_status = "ok"
+        status_code = 200
+    except Exception:
+        app.logger.exception("Health check failed while reaching the database.")
+        database_status = "error"
+        status_code = 503
+
+    return jsonify(
+        {
+            "status": "ok" if database_status == "ok" else "degraded",
+            "app": "MailFlow Studio",
+            "version": APP_VERSION,
+            "database": database_status,
+            "timezone": APP_TIMEZONE_NAME,
+        }
+    ), status_code
+
+
 @app.errorhandler(413)
 def request_too_large(_error):
     return "The uploaded request is too large.", 413
+
+
+@app.errorhandler(404)
+def not_found(_error):
+    return "Page not found.", 404
 
 
 # ---------------- Time zone ----------------
