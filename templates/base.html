@@ -137,8 +137,11 @@
 
             {% block content %}{% endblock %}
 
-            <footer class="site-foot">
-                MailFlow Studio · {{ year }}
+            <footer class="site-foot" aria-label="Application footer">
+                <span>MailFlow Studio</span>
+                <span class="site-foot-sep">·</span>
+                <span>{{ year }}</span>
+                <span class="site-foot-brand">Built by AmanUllah</span>
             </footer>
         </main>
     </div>

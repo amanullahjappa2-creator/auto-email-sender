@@ -139,9 +139,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 18px;
   min-width: 0;
-  padding: 72px 24px 48px;
+  padding: 72px 24px 12px;
 }
 
 .auth-top { position: absolute; top: 16px; right: 20px; }
@@ -154,10 +154,10 @@
   overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow:
     0 1px 2px color-mix(in srgb, var(--ink) 8%, transparent),
-    0 14px 32px -18px color-mix(in srgb, var(--ink) 22%, transparent);
+    0 16px 30px -20px color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 /* The airmail stripe from the dashboard envelope, kept thin */
