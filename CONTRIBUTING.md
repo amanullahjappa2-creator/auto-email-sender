@@ -1,6 +1,6 @@
 # Contributing to MailFlow Studio
 
-Thanks for helping improve MailFlow Studio.
+Thanks for helping improve MailFlow Studio
 
 ## Development setup
 
