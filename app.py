@@ -86,6 +86,18 @@ app.config["APP_NAME"] = "MailFlow Studio"
 app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
 app.config["RATELIMIT_STORAGE_URI"] = os.environ.get("RATE_LIMIT_STORAGE_URI", "memory://")
 app.config["RATELIMIT_DEFAULT"] = []
+try:
+    trusted_proxy_hops = max(0, int(os.environ.get("TRUSTED_PROXY_HOPS", "1")))
+except ValueError:
+    trusted_proxy_hops = 1
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=trusted_proxy_hops,
+    x_proto=trusted_proxy_hops,
+    x_host=trusted_proxy_hops,
+    x_port=trusted_proxy_hops,
+    x_prefix=trusted_proxy_hops,
+)
 db.init_app(app)
 csrf.init_app(app)
 limiter.init_app(app)
