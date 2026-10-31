@@ -41,7 +41,7 @@ jobs:
       - name: Run tests with coverage
         run: |
           coverage run --rcfile=.coveragerc -m unittest discover --start-directory tests --verbose
-          coverage report --rcfile=.coveragerc --fail-under=35
+          coverage report --rcfile=.coveragerc --fail-under=50
           coverage xml --rcfile=.coveragerc
           coverage-badge -o coverage.svg
 

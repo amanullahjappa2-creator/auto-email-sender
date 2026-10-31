@@ -1,4 +1,5 @@
 -r requirements.txt
 coverage>=7.6,<8.0
 coverage-badge>=1.1.2,<2.0
+# coverage-badge still imports pkg_resources; keep setuptools below its removal.
 setuptools>=70,<82

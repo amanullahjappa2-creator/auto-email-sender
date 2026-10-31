@@ -1040,6 +1040,136 @@ class ApplicationSecurityTests(unittest.TestCase):
         self.assertEqual([response.status_code for response in responses[:5]], [200] * 5)
         self.assertEqual(responses[5].status_code, 429)
 
+    def test_direct_login_rate_limit_ignores_spoofed_forwarded_for_headers(self):
+        client = application.test_client()
+        page = client.get("/login", base_url="https://localhost")
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"',
+            page.data,
+        ).group(1).decode()
+        application.config["TESTING"] = False
+        mailflow_app.limiter.reset()
+        try:
+            responses = [
+                client.post(
+                    "/login",
+                    base_url="https://localhost",
+                    headers={
+                        "Referer": "https://localhost/login",
+                        "X-Forwarded-For": f"198.51.100.{index}",
+                    },
+                    data={
+                        "csrf_token": token,
+                        "email": "unknown@example.test",
+                        "password": "wrong-password",
+                    },
+                )
+                for index in range(1, 7)
+            ]
+        finally:
+            application.config["TESTING"] = True
+            mailflow_app.limiter.reset()
+
+        self.assertEqual(responses[5].status_code, 429)
+
+    def test_contacts_csv_import_stops_at_500_rows(self):
+        user_id = self.create_user("csv-limit@example.test")
+        client = self.authenticated_client(user_id)
+        page = client.get("/contacts", base_url="https://localhost")
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"',
+            page.data,
+        ).group(1).decode()
+        rows = "email,name\n" + "".join(
+            f"contact-{index}@example.test,Contact {index}\n"
+            for index in range(501)
+        )
+
+        response = client.post(
+            "/contacts",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/contacts"},
+            data={
+                "csrf_token": token,
+                "action": "import",
+                "contact_file": (BytesIO(rows.encode()), "contacts.csv"),
+            },
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Imported 500 contact(s); skipped 1", response.data)
+        with application.app_context():
+            self.assertEqual(Contact.query.filter_by(user_id=user_id).count(), 500)
+
+    def test_contacts_csv_import_rejects_files_over_one_megabyte(self):
+        user_id = self.create_user("csv-size@example.test")
+        client = self.authenticated_client(user_id)
+        page = client.get("/contacts", base_url="https://localhost")
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"',
+            page.data,
+        ).group(1).decode()
+        oversized = b"email,name\ncontact@example.test,Contact\n" + b"x" * 1_000_001
+
+        response = client.post(
+            "/contacts",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/contacts"},
+            data={
+                "csrf_token": token,
+                "action": "import",
+                "contact_file": (BytesIO(oversized), "contacts.csv"),
+            },
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"CSV file must be smaller than 1 MB", response.data)
+        with application.app_context():
+            self.assertEqual(Contact.query.filter_by(user_id=user_id).count(), 0)
+
+    def test_template_creation_stops_at_60_per_account(self):
+        user_id = self.create_user("template-limit@example.test")
+        with application.app_context():
+            mailflow_app.ensure_sample_templates_for_user(user_id)
+            for index in range(40):
+                db.session.add(
+                    EmailTemplate(
+                        user_id=user_id,
+                        name=f"Custom {index}",
+                        subject="Subject",
+                        body="Body",
+                    )
+                )
+            db.session.commit()
+
+        client = self.authenticated_client(user_id)
+        page = client.get("/templates", base_url="https://localhost")
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"',
+            page.data,
+        ).group(1).decode()
+        response = client.post(
+            "/templates",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/templates"},
+            data={
+                "csrf_token": token,
+                "template_name": "One too many",
+                "subject": "Subject",
+                "body": "Body",
+            },
+            follow_redirects=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"keep up to 60 templates", response.data)
+        with application.app_context():
+            self.assertEqual(EmailTemplate.query.filter_by(user_id=user_id).count(), 60)
+
     def test_scheduler_route_rejects_a_past_time(self):
         user_id = self.create_user("scheduler-route@example.test")
         client = self.authenticated_client(user_id)
