@@ -1,11 +1,12 @@
 from flask import Blueprint
 dashboard_bp = Blueprint('dashboard', __name__)
-from app import APP_TIMEZONE_NAME, accepted_rate, build_week, clock_parts, first_name_of, greeting_for, local_now, setup_status, to_local, validate_email_address
+from app import APP_TIMEZONE_NAME
 from extensions import db
 from models import Contact, EmailLog, ScheduledEmail
 from flask_login import current_user, login_required
 from flask import abort, flash, redirect, render_template, request, url_for
 import csv, io
+from utils import accepted_rate, build_week, clock_parts, first_name_of, greeting_for, local_now, setup_status, to_local, validate_email_address
 
 @dashboard_bp.route("/")
 @login_required
