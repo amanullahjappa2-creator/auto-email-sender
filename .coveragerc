@@ -5,10 +5,13 @@ source =
     app
     compose_tools
     config
+    extensions
     models
+    routes
     security
     send_emails
     template_models
+    utils
 
 [report]
 show_missing = True
