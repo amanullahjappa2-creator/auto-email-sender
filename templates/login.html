@@ -8,7 +8,7 @@
 
 {% include "_flash.html" %}
 
-<form class="acc-form" method="post" action="{{ url_for('login') }}">
+<form class="acc-form" method="post" action="{{ url_for('auth.login') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   <div class="acc-field">
@@ -36,6 +36,6 @@
 </form>
 
 <p class="auth-switch">New to MailFlow Studio?
-  <a class="acc-link" href="{{ url_for('register') }}">Create an account</a>
+  <a class="acc-link" href="{{ url_for('auth.register') }}">Create an account</a>
 </p>
 {% endblock %}

@@ -54,7 +54,7 @@ def scheduled():
             )
             db.session.commit()
             flash("Email scheduled. Keep the scheduler worker running to deliver it on time.", "success")
-            return redirect(url_for("scheduled"))
+            return redirect(url_for("scheduled.scheduled"))
 
     queued = (
         ScheduledEmail.query.filter_by(user_id=current_user.id)
@@ -92,7 +92,7 @@ def cancel_schedule(schedule_id):
         db.session.delete(schedule)
         db.session.commit()
         flash("Scheduled email cancelled.", "success")
-    return redirect(url_for("scheduled"))
+    return redirect(url_for("scheduled.scheduled"))
 
 
 # ---------------- Saved templates ----------------

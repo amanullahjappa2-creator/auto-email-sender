@@ -161,7 +161,7 @@ def contacts():
         else:
             abort(400)
 
-        return redirect(url_for("contacts"))
+        return redirect(url_for("dashboard.contacts"))
 
     saved_contacts = (
         Contact.query.filter_by(user_id=current_user.id)
@@ -182,6 +182,6 @@ def delete_contact(contact_id):
     db.session.delete(contact)
     db.session.commit()
     flash("Contact deleted.", "success")
-    return redirect(url_for("contacts"))
+    return redirect(url_for("dashboard.contacts"))
 
 

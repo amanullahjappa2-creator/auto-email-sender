@@ -11,7 +11,7 @@ from utils import clean_body, validate_email_address
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     if request.method == "POST":
         name = request.form.get("full_name", "").strip()
@@ -38,7 +38,7 @@ def register():
 
             login_user(user)
             flash("Your account has been created. Configure email settings to start sending.", "success")
-            return redirect(url_for("settings"))
+            return redirect(url_for("auth.settings"))
 
     return render_template("register.html")
 
@@ -51,7 +51,7 @@ def register():
 )
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard.dashboard"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().casefold()
@@ -70,7 +70,7 @@ def login():
             if destination.startswith("/") and not destination.startswith("//"):
                 return redirect(destination)
 
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("dashboard.dashboard"))
 
         flash("Invalid email or password.", "error")
 
@@ -82,7 +82,7 @@ def login():
 def logout():
     logout_user()
     flash("You have been logged out.", "success")
-    return redirect(url_for("login"))
+    return redirect(url_for("auth.login"))
 
 
 # ---------------- User email settings ----------------
@@ -130,7 +130,7 @@ def settings():
 
             db.session.commit()
             flash("Your email settings have been saved.", "success")
-            return redirect(url_for("settings"))
+            return redirect(url_for("auth.settings"))
 
     return render_template("settings.html", user=user)
 

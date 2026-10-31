@@ -91,7 +91,7 @@ csrf.init_app(app)
 limiter.init_app(app)
 migrate.init_app(app, db)
 
-login_manager.login_view = "login"
+login_manager.login_view = "auth.login"
 login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "info"
 login_manager.session_protection = app.config["SESSION_PROTECTION"]
@@ -258,7 +258,7 @@ def record_site_visit(response):
     """Count successful HTML page visits without storing IP or account data."""
     if (
         request.method != "GET"
-        or request.endpoint in {"static", "admin_dashboard"}
+        or request.endpoint in {"static", "admin.admin_dashboard"}
         or not 200 <= response.status_code < 300
         or response.mimetype != "text/html"
     ):
@@ -989,37 +989,6 @@ def register_routes():
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(scheduled_bp)
     app.register_blueprint(mail_bp)
-
-    # Preserve the original endpoint names used by templates and integrations.
-    legacy_route_endpoints = (
-        (auth_bp, "register", "/register", ("GET", "POST")),
-        (auth_bp, "login", "/login", ("GET", "POST")),
-        (auth_bp, "logout", "/logout", ("POST",)),
-        (auth_bp, "settings", "/settings", ("GET", "POST")),
-        (admin_bp, "admin_dashboard", "/admin", ("GET",)),
-        (admin_bp, "admin_invite", "/admin/admins/invite", ("POST",)),
-        (admin_bp, "admin_verify_invite", "/admin/admins/verify", ("POST",)),
-        (admin_bp, "admin_revoke", "/admin/admins/<int:grant_id>/revoke", ("POST",)),
-        (admin_bp, "admin_set_user_suspension", "/admin/users/<int:user_id>/suspension", ("POST",)),
-        (dashboard_bp, "dashboard", "/", ("GET",)),
-        (dashboard_bp, "contacts", "/contacts", ("GET", "POST")),
-        (dashboard_bp, "delete_contact", "/contacts/<int:contact_id>/delete", ("POST",)),
-        (scheduled_bp, "scheduled", "/scheduled", ("GET", "POST")),
-        (scheduled_bp, "cancel_schedule", "/scheduled/<int:schedule_id>/cancel", ("POST",)),
-        (mail_bp, "compose", "/compose", ("GET", "POST")),
-        (mail_bp, "templates_list", "/templates", ("GET", "POST")),
-        (mail_bp, "template_delete", "/templates/<int:template_id>/delete", ("POST",)),
-        (mail_bp, "search", "/search", ("GET",)),
-        (mail_bp, "history", "/history", ("GET",)),
-    )
-    for blueprint, endpoint, rule, methods in legacy_route_endpoints:
-        app.add_url_rule(
-            rule,
-            endpoint=endpoint,
-            view_func=app.view_functions[f"{blueprint.name}.{endpoint}"],
-            methods=list(methods),
-        )
-
 
 # When launched as `python app.py`, the main module is named `__main__` while
 # the route modules import shared helpers from `app`. Point that import at the

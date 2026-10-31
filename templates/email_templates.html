@@ -26,7 +26,7 @@
       <h1>Templates</h1>
       <p>Save the emails you send often, then load one in Compose with a single click.</p>
     </div>
-    <a class="btn btn-primary" href="{{ url_for('compose') }}">
+    <a class="btn btn-primary" href="{{ url_for('mail.compose') }}">
       <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
     </a>
   </header>
@@ -56,7 +56,7 @@
           <p>Only the subject and message are saved. Never recipients or files.</p>
         </div>
       </div>
-      <form class="panel-body" method="post" action="{{ url_for('templates_list') }}" novalidate>
+      <form class="panel-body" method="post" action="{{ url_for('mail.templates_list') }}" novalidate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="field{% if field_errors.template_name %} has-error{% endif %}">
@@ -114,10 +114,10 @@
           <p class="tpl-snippet">{{ t.body|truncate(140, True, "...") }}</p>
           {% if t.updated_at %}<p class="tpl-meta">Updated {{ t.updated_at|local_time("%d %b %Y") }}</p>{% endif %}
           <div class="tpl-actions">
-            <a class="btn btn-quiet" href="{{ url_for('compose', template=t.id) }}">
+            <a class="btn btn-quiet" href="{{ url_for('mail.compose', template=t.id) }}">
               <svg class="icon" aria-hidden="true"><use href="#i-send"/></svg>Use in Compose
             </a>
-            <form method="post" action="{{ url_for('template_delete', template_id=t.id) }}">
+            <form method="post" action="{{ url_for('mail.template_delete', template_id=t.id) }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button class="btn btn-quiet btn-danger-quiet" type="submit"
                       aria-label="Delete template {{ t.name }}">

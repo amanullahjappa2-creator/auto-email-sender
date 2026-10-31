@@ -18,7 +18,7 @@
 
 
   <div class="settings-grid">
-    <form class="settings-form" method="post" action="{{ url_for('settings') }}">
+    <form class="settings-form" method="post" action="{{ url_for('auth.settings') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       {# ---------- Email account ---------- #}
@@ -98,7 +98,7 @@
             <div class="acc-pw">
               <input class="acc-input" id="app_password" name="app_password" type="password"
                      maxlength="256" autocomplete="new-password"
-                     placeholder="{% if user.encrypted_app_password %}Saved — enter a new one only to change it{% else %}Enter your Gmail App Password{% endif %}"
+                     placeholder="{% if user.encrypted_app_password %}Saved Ã¢â‚¬â€ enter a new one only to change it{% else %}Enter your Gmail App Password{% endif %}"
                      {% if not user.encrypted_app_password %}required{% endif %}
                      aria-describedby="app-password-hint">
               <button class="acc-pw-toggle" type="button" data-toggle-password

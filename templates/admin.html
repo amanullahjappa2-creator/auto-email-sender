@@ -20,7 +20,7 @@
       <dd class="stat-note">Unique browser sessions</dd>
     </div>
     <div class="stat">
-      <dt>Visitor sessions · 30 days</dt>
+      <dt>Visitor sessions Ã‚Â· 30 days</dt>
       <dd class="stat-num">{{ stats.visitors_30d }}</dd>
       <dd class="stat-note">One count per browser each day</dd>
     </div>
@@ -42,7 +42,7 @@
     <div class="stat">
       <dt>Total email attempts</dt>
       <dd class="stat-num">{{ stats.emails_total }}</dd>
-      <dd class="stat-note">{{ stats.emails_sent }} sent · {{ stats.emails_failed }} failed</dd>
+      <dd class="stat-note">{{ stats.emails_sent }} sent Ã‚Â· {{ stats.emails_failed }} failed</dd>
     </div>
     <div class="stat">
       <dt>Scheduled emails</dt>
@@ -60,7 +60,7 @@
     <div class="panel-head">
       <div>
         <h2 id="visits-title">Daily visitor sessions</h2>
-        <p>Last 30 days · {{ timezone_name }}</p>
+        <p>Last 30 days Ã‚Â· {{ timezone_name }}</p>
       </div>
     </div>
     {% set peak_visits = daily_visits|map(attribute="count")|max %}
@@ -80,7 +80,7 @@
     <div class="panel-head">
       <div>
         <h2 id="email-activity-title">Email activity</h2>
-        <p>Successes and failures over the last 30 days · {{ timezone_name }}</p>
+        <p>Successes and failures over the last 30 days Ã‚Â· {{ timezone_name }}</p>
       </div>
     </div>
     {% set peak_email_sent = daily_email_activity|map(attribute='sent')|list|max|default(0) %}
@@ -113,7 +113,7 @@
       </div>
     </div>
     <div class="admin-section-body">
-      <form class="admin-inline-form" method="post" action="{{ url_for('admin_invite') }}">
+      <form class="admin-inline-form" method="post" action="{{ url_for('admin.admin_invite') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label class="sr-only" for="admin-invite-email">Existing account email</label>
         <input class="acc-input" id="admin-invite-email" name="email" type="email" maxlength="254" autocomplete="off" placeholder="Existing account email" required>
@@ -121,7 +121,7 @@
       </form>
 
       {% if pending_verification %}
-      <form class="admin-inline-form admin-verify-form" method="post" action="{{ url_for('admin_verify_invite') }}">
+      <form class="admin-inline-form admin-verify-form" method="post" action="{{ url_for('admin.admin_verify_invite') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="email" value="{{ pending_verification.target_email }}">
         <label class="sr-only" for="admin-verification-code">Six-digit verification code</label>
@@ -137,10 +137,10 @@
         <li>
           <span class="admin-user-copy">
             <strong>{{ user.full_name }}</strong>
-            <small>{{ user.email }}{% if user.email.casefold() in bootstrap_admin_emails %} · Primary admin{% else %} · Verified grant{% endif %}</small>
+            <small>{{ user.email }}{% if user.email.casefold() in bootstrap_admin_emails %} Ã‚Â· Primary admin{% else %} Ã‚Â· Verified grant{% endif %}</small>
           </span>
           {% for grant in admin_grants if grant.email.casefold() == user.email.casefold() %}
-          <form method="post" action="{{ url_for('admin_revoke', grant_id=grant.id) }}">
+          <form method="post" action="{{ url_for('admin.admin_revoke', grant_id=grant.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-quiet admin-danger-btn" type="submit">Revoke</button>
           </form>
@@ -159,7 +159,7 @@
       </div>
     </div>
     <div class="admin-section-body">
-      <form class="admin-inline-form admin-account-search" method="get" action="{{ url_for('admin_dashboard') }}" role="search">
+      <form class="admin-inline-form admin-account-search" method="get" action="{{ url_for('admin.admin_dashboard') }}" role="search">
         <label class="sr-only" for="admin-account-query">Search registered accounts</label>
         <input class="acc-input" id="admin-account-query" name="q" type="search" maxlength="120" value="{{ account_search }}" placeholder="Search by name or email">
         <button class="btn btn-quiet" type="submit">Search accounts</button>
@@ -175,14 +175,14 @@
         <li>
           <span class="admin-user-copy">
             <strong>{{ user.full_name }}</strong>
-            <small>{{ user.email }} · Joined {{ user.created_at|local_time("%d %b %Y") }}</small>
+            <small>{{ user.email }} Ã‚Â· Joined {{ user.created_at|local_time("%d %b %Y") }}</small>
           </span>
           <span class="admin-user-state">
             {% if has_admin_access %}<span class="pill pill-admin">Admin</span>{% endif %}
             <span class="pill {{ 'pill-suspended' if is_suspended else 'pill-ok' }}">{{ "Suspended" if is_suspended else "Active" }}</span>
           </span>
           {% if not has_admin_access and user.id != current_user.id %}
-          <form method="post" action="{{ url_for('admin_set_user_suspension', user_id=user.id) }}">
+          <form method="post" action="{{ url_for('admin.admin_set_user_suspension', user_id=user.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="action" value="{{ 'reactivate' if is_suspended else 'suspend' }}">
             <button class="btn btn-quiet {{ 'admin-reactivate-btn' if is_suspended else 'admin-danger-btn' }}" type="submit">{{ "Reactivate" if is_suspended else "Suspend" }}</button>
@@ -194,11 +194,11 @@
       {% if total_account_pages > 1 %}
       <nav class="admin-pagination" aria-label="Account list pages">
         {% if account_page > 1 %}
-        <a class="btn btn-quiet" href="{{ url_for('admin_dashboard', q=account_search, page=account_page - 1) }}">Previous</a>
+        <a class="btn btn-quiet" href="{{ url_for('admin.admin_dashboard', q=account_search, page=account_page - 1) }}">Previous</a>
         {% endif %}
         <span>Page {{ account_page }} / {{ total_account_pages }}</span>
         {% if account_page < total_account_pages %}
-        <a class="btn btn-quiet" href="{{ url_for('admin_dashboard', q=account_search, page=account_page + 1) }}">Next</a>
+        <a class="btn btn-quiet" href="{{ url_for('admin.admin_dashboard', q=account_search, page=account_page + 1) }}">Next</a>
         {% endif %}
       </nav>
       {% endif %}

@@ -162,10 +162,10 @@ def admin_invite():
     target_user = User.query.filter_by(email=target_email).first()
     if not validate_email_address(target_email) or not target_user:
         flash("Enter the email of an existing MailFlow account.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
     if target_email in admin_email_allowlist():
         flash("That account already has administrator access.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
 
     now = int(time.time())
     recent_challenge = (
@@ -178,7 +178,7 @@ def admin_invite():
     )
     if recent_challenge:
         flash("Please wait before requesting another verification code.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
 
     code = f"{secrets.randbelow(1_000_000):06d}"
     AdminVerification.query.filter(
@@ -204,7 +204,7 @@ def admin_invite():
         challenge.consumed = True
         db.session.commit()
         flash("The primary admin email is not configured correctly.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
 
     try:
         app_module.send_admin_verification_code(primary_admin, primary_email, code)
@@ -216,9 +216,9 @@ def admin_invite():
             "The verification email could not be sent. Check the primary admin's SMTP settings.",
             "error",
         )
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
     flash("A verification code was sent to the primary admin email.", "success")
-    return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("admin.admin_dashboard"))
 
 
 @admin_bp.route("/admin/admins/verify", methods=["POST"])
@@ -244,7 +244,7 @@ def admin_verify_invite():
         or challenge.attempts >= ADMIN_CODE_MAX_ATTEMPTS
     ):
         flash("The verification code expired or is no longer available.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
 
     is_valid_code = bool(re.fullmatch(r"\d{6}", code))
     if is_valid_code:
@@ -256,19 +256,19 @@ def admin_verify_invite():
             challenge.consumed = True
         db.session.commit()
         flash("The verification code is incorrect.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
 
     target_user = User.query.filter_by(email=target_email).first()
     if not target_user:
         challenge.consumed = True
         db.session.commit()
         flash("That account no longer exists.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
     if target_email in admin_email_allowlist():
         challenge.consumed = True
         db.session.commit()
         flash("That account already has administrator access.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
 
     db.session.add(
         AdminGrant(
@@ -279,7 +279,7 @@ def admin_verify_invite():
     challenge.consumed = True
     db.session.commit()
     flash("Administrator access has been granted.", "success")
-    return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("admin.admin_dashboard"))
 
 
 @admin_bp.route("/admin/admins/<int:grant_id>/revoke", methods=["POST"])
@@ -292,12 +292,12 @@ def admin_revoke(grant_id):
         abort(404)
     if grant.email.casefold() == current_user.email.casefold():
         flash("You cannot revoke your own administrator access.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
 
     db.session.delete(grant)
     db.session.commit()
     flash("Administrator access has been revoked.", "success")
-    return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("admin.admin_dashboard"))
 
 
 @admin_bp.route("/admin/users/<int:user_id>/suspension", methods=["POST"])
@@ -310,7 +310,7 @@ def admin_set_user_suspension(user_id):
         abort(404)
     if user.id == current_user.id or user.email.casefold() in admin_email_allowlist():
         flash("Administrator accounts cannot be suspended from this panel.", "error")
-        return redirect(url_for("admin_dashboard"))
+        return redirect(url_for("admin.admin_dashboard"))
 
     suspension = db.session.get(UserSuspension, user.id)
     action = request.form.get("action")
@@ -329,6 +329,6 @@ def admin_set_user_suspension(user_id):
         flash("The account has been reactivated.", "success")
     else:
         abort(400)
-    return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("admin.admin_dashboard"))
 
 

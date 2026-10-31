@@ -92,7 +92,7 @@ def compose():
                         f'{"saved" if created else "updated"}.',
                         "success",
                     )
-                    return redirect(url_for("compose", template=saved.id))
+                    return redirect(url_for("mail.compose", template=saved.id))
 
         else:
             # True when attachments or addresses changed in this request.
@@ -194,7 +194,7 @@ def compose():
                         db.session.rollback()
                         flash(str(exc), "error")
 
-                    return redirect(url_for("compose"))
+                    return redirect(url_for("mail.compose"))
 
     field_errors = {}
     for field, message in errors:
@@ -262,7 +262,7 @@ def templates_list():
                     f'Template "{saved.name}" {"saved" if created else "updated"}.',
                     "success",
                 )
-                return redirect(url_for("templates_list"))
+                return redirect(url_for("mail.templates_list"))
 
     field_errors = {}
     for field, message in errors:
@@ -299,7 +299,7 @@ def template_delete(template_id):
         db.session.commit()
         flash(f'Template "{name}" deleted.', "success")
 
-    return redirect(url_for("templates_list"))
+    return redirect(url_for("mail.templates_list"))
 
 
 # ---------------- Email history ----------------

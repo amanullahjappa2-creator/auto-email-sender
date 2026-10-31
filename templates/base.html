@@ -45,37 +45,37 @@
 <div class="app">
     {% if current_user.is_authenticated %}
     <aside class="sidebar">
-        <a class="brand" href="{{ url_for('dashboard') }}" aria-label="MailFlow Studio home">
+        <a class="brand" href="{{ url_for('dashboard.dashboard') }}" aria-label="MailFlow Studio home">
             <span class="brand-mark"><svg class="icon"><use href="#i-mail"/></svg></span>
             <span class="brand-name">mailflow<span class="brand-dot">.</span></span>
         </a>
 
         <nav class="nav" aria-label="Main">
-            <a class="nav-item" href="{{ url_for('dashboard') }}"{% if request.endpoint == 'dashboard' %} aria-current="page"{% endif %}>
+            <a class="nav-item" href="{{ url_for('dashboard.dashboard') }}"{% if request.endpoint == 'dashboard.dashboard' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-overview"/></svg>Overview
             </a>
-            <a class="nav-item" href="{{ url_for('compose') }}"{% if request.endpoint == 'compose' %} aria-current="page"{% endif %}>
+            <a class="nav-item" href="{{ url_for('mail.compose') }}"{% if request.endpoint == 'mail.compose' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-mail"/></svg>Compose
             </a>
-            <a class="nav-item" href="{{ url_for('scheduled') }}"{% if request.endpoint in ['scheduled', 'cancel_schedule'] %} aria-current="page"{% endif %}>
+            <a class="nav-item" href="{{ url_for('scheduled.scheduled') }}"{% if request.endpoint in ['scheduled.scheduled', 'scheduled.cancel_schedule'] %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-clock"/></svg>Scheduled
             </a>
-            <a class="nav-item" href="{{ url_for('contacts') }}"{% if request.endpoint in ['contacts', 'delete_contact'] %} aria-current="page"{% endif %}>
+            <a class="nav-item" href="{{ url_for('dashboard.contacts') }}"{% if request.endpoint in ['dashboard.contacts', 'dashboard.delete_contact'] %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-users"/></svg>Contacts
             </a>
-            <a class="nav-item" href="{{ url_for('templates_list') }}"{% if request.endpoint == 'templates_list' %} aria-current="page"{% endif %}>
+            <a class="nav-item" href="{{ url_for('mail.templates_list') }}"{% if request.endpoint == 'mail.templates_list' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-file"/></svg>Templates
             </a>
             <span class="nav-sep" role="presentation"></span>
-            <a class="nav-item" href="{{ url_for('history') }}"{% if request.endpoint == 'history' %} aria-current="page"{% endif %}>
+            <a class="nav-item" href="{{ url_for('mail.history') }}"{% if request.endpoint == 'mail.history' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-list"/></svg>History
             </a>
-            <a class="nav-item" href="{{ url_for('settings') }}"{% if request.endpoint == 'settings' %} aria-current="page"{% endif %}>
+            <a class="nav-item" href="{{ url_for('auth.settings') }}"{% if request.endpoint == 'auth.settings' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-settings"/></svg>Email Settings
             </a>
             {% if is_admin %}
             <span class="nav-sep" role="presentation"></span>
-            <a class="nav-item" href="{{ url_for('admin_dashboard') }}"{% if request.endpoint == 'admin_dashboard' %} aria-current="page"{% endif %}>
+            <a class="nav-item" href="{{ url_for('admin.admin_dashboard') }}"{% if request.endpoint == 'admin.admin_dashboard' %} aria-current="page"{% endif %}>
                 <svg class="icon"><use href="#i-shield"/></svg>Admin panel
             </a>
             {% endif %}
@@ -90,7 +90,7 @@
                     <small>{{ current_user.email }}</small>
                 </span>
             </div>
-            <form method="post" action="{{ url_for('logout') }}">
+            <form method="post" action="{{ url_for('auth.logout') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="nav-item" type="submit">
                     <svg class="icon" aria-hidden="true"><use href="#i-log-out"/></svg>Log out
@@ -103,16 +103,16 @@
     <div class="main">
         <header class="topbar">
             {% if current_user.is_authenticated %}
-            <form class="search" method="get" action="{{ url_for('search') }}" role="search" aria-label="Search emails, contacts, and templates">
+            <form class="search" method="get" action="{{ url_for('mail.search') }}" role="search" aria-label="Search emails, contacts, and templates">
                 <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                <input id="search" name="q" type="search" placeholder="Search emails, contacts, templates" autocomplete="off" maxlength="120" aria-label="Search emails, contacts, and templates" value="{{ request.args.get('q', '') if request.endpoint == 'search' else '' }}">
+                <input id="search" name="q" type="search" placeholder="Search emails, contacts, templates" autocomplete="off" maxlength="120" aria-label="Search emails, contacts, and templates" value="{{ request.args.get('q', '') if request.endpoint == 'mail.search' else '' }}">
                 <kbd id="search-hint">Ctrl K</kbd>
                 <button class="search-submit" type="submit" aria-label="Search">
                     <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
                 </button>
             </form>
             {% else %}
-            <a class="brand" href="{{ url_for('login') }}">
+            <a class="brand" href="{{ url_for('auth.login') }}">
                 <span class="brand-name">mailflow<span class="brand-dot">.</span></span>
             </a>
             {% endif %}
@@ -127,11 +127,11 @@
             {# Every page shows its flash messages here, once. Pages must not include _flash.html themselves. #}
             {% include "_flash.html" %}
 
-            {% if not current_user.is_authenticated and request.endpoint in ['login', 'register'] %}
+            {% if not current_user.is_authenticated and request.endpoint in ['auth.login', 'auth.register'] %}
                 <nav aria-label="Account">
-                    <a href="{{ url_for('login') }}">Log in</a>
+                    <a href="{{ url_for('auth.login') }}">Log in</a>
                     |
-                    <a href="{{ url_for('register') }}">Create account</a>
+                    <a href="{{ url_for('auth.register') }}">Create account</a>
                 </nav>
             {% endif %}
 
@@ -139,7 +139,7 @@
 
             <footer class="site-foot" aria-label="Application footer">
                 <span>MailFlow Studio</span>
-                <span class="site-foot-sep">·</span>
+                <span class="site-foot-sep">Ã‚Â·</span>
                 <span>{{ year }}</span>
                 <span class="site-foot-brand">Built by AmanUllah</span>
             </footer>

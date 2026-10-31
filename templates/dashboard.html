@@ -29,13 +29,13 @@
         <p class="lede">Here is how the last week went. Write your next message when you are ready.</p>
       {% endif %}
       <div class="actions">
-        <a class="btn btn-primary" href="{{ url_for('compose') }}">
+        <a class="btn btn-primary" href="{{ url_for('mail.compose') }}">
           <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
         </a>
-        <a class="btn btn-quiet" href="{{ url_for('contacts') }}">
+        <a class="btn btn-quiet" href="{{ url_for('dashboard.contacts') }}">
           <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>Import contacts
         </a>
-        <form method="post" action="{{ url_for('logout') }}">
+        <form method="post" action="{{ url_for('auth.logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn btn-quiet" type="submit">
             <svg class="icon" aria-hidden="true"><use href="#i-log-out"/></svg>Log out
@@ -92,7 +92,7 @@
           {% else %}{{ week.total }} emails in the last 7 days.{% endif %}
         </p>
       </div>
-      <a class="link-btn" href="{{ url_for('history') }}">Open history</a>
+      <a class="link-btn" href="{{ url_for('mail.history') }}">Open history</a>
     </div>
 
     {% if last_email or week.total %}
@@ -126,7 +126,7 @@
       <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-mail"/></svg></span>
       <h3>Nothing sent yet</h3>
       <p>Once you send emails, you will see how many went out each day, and which ones failed.</p>
-      <a class="btn btn-quiet" href="{{ url_for('compose') }}">Compose email</a>
+      <a class="btn btn-quiet" href="{{ url_for('mail.compose') }}">Compose email</a>
     </div>
     {% endif %}
 
@@ -175,24 +175,24 @@
     {% endif %}
     <ol class="steps checklist">
       <li{% if setup.account_ready %} class="is-done"{% endif %}>
-        <span class="step-no" aria-hidden="true">{{ "✓" if setup.account_ready else "1" }}</span>
+        <span class="step-no" aria-hidden="true">{{ "Ã¢Å“â€œ" if setup.account_ready else "1" }}</span>
         <div>
           <strong>Connect your Gmail account{% if setup.account_ready %}<span class="sr-only"> (done)</span>{% endif %}</strong>
           {% if setup.account_ready %}
-            <p>Sending from {{ setup.mail_address }}. <a href="{{ url_for('settings') }}">Change settings</a></p>
+            <p>Sending from {{ setup.mail_address }}. <a href="{{ url_for('auth.settings') }}">Change settings</a></p>
           {% else %}
-            <p>Add your Gmail address and App Password in Settings. <a href="{{ url_for('settings') }}">Open settings</a></p>
+            <p>Add your Gmail address and App Password in Settings. <a href="{{ url_for('auth.settings') }}">Open settings</a></p>
           {% endif %}
         </div>
       </li>
       <li{% if setup.has_emails %} class="is-done"{% endif %}>
-        <span class="step-no" aria-hidden="true">{{ "✓" if setup.has_emails else "2" }}</span>
+        <span class="step-no" aria-hidden="true">{{ "Ã¢Å“â€œ" if setup.has_emails else "2" }}</span>
         <div>
           <strong>Send your first email{% if setup.has_emails %}<span class="sr-only"> (done)</span>{% endif %}</strong>
           {% if setup.has_emails %}
-            <p>You have started sending. <a href="{{ url_for('compose') }}">Write another</a></p>
+            <p>You have started sending. <a href="{{ url_for('mail.compose') }}">Write another</a></p>
           {% else %}
-            <p>Write it in Compose, preview it, then confirm. Try your own address first. <a href="{{ url_for('compose') }}">Open Compose</a></p>
+            <p>Write it in Compose, preview it, then confirm. Try your own address first. <a href="{{ url_for('mail.compose') }}">Open Compose</a></p>
           {% endif %}
         </div>
       </li>

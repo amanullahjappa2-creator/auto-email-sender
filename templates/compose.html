@@ -36,7 +36,7 @@
         Sending from {{ current_user.mail_address }}
       </span>
     {% else %}
-      <a class="status-pill status-pill-warn" href="{{ url_for('settings') }}">
+      <a class="status-pill status-pill-warn" href="{{ url_for('auth.settings') }}">
         <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
         Connect your Gmail account in Settings
       </a>
@@ -68,7 +68,7 @@
   {% endif %}
 
   {# ---------- Start from a saved template (a separate GET form: nothing is sent) ---------- #}
-  <form class="tpl-bar" method="get" action="{{ url_for('compose') }}">
+  <form class="tpl-bar" method="get" action="{{ url_for('mail.compose') }}">
     <label for="tpl-select">Start from a template</label>
     {% if templates %}
       <select class="input" id="tpl-select" name="template">
@@ -80,10 +80,10 @@
     {% else %}
       <span class="hint">You have no templates yet. Write an email below, then use "Save as template".</span>
     {% endif %}
-    <a class="link-btn" href="{{ url_for('templates_list') }}">Manage templates</a>
+    <a class="link-btn" href="{{ url_for('mail.templates_list') }}">Manage templates</a>
   </form>
 
-  <form class="compose-grid" id="compose-form" method="post" action="{{ url_for('compose') }}"
+  <form class="compose-grid" id="compose-form" method="post" action="{{ url_for('mail.compose') }}"
         enctype="multipart/form-data"
         novalidate data-previewed="{{ 'true' if preview else 'false' }}"
         data-max-files="{{ limits.max_files }}">
@@ -110,7 +110,7 @@
             <label class="sr-only" for="saved-contact-picker">Choose saved contacts</label>
             <select class="input" id="saved-contact-picker" multiple size="3" aria-describedby="saved-contact-hint">
               {% for contact in contacts %}
-                <option value="{{ contact.email }}">{{ contact.name ~ " — " if contact.name else "" }}{{ contact.email }}</option>
+                <option value="{{ contact.email }}">{{ contact.name ~ " Ã¢â‚¬â€ " if contact.name else "" }}{{ contact.email }}</option>
               {% endfor %}
             </select>
             <button class="btn btn-quiet" type="button" id="add-saved-contacts" data-target="recipient">Add selected</button>

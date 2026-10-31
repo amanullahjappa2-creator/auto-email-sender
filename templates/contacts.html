@@ -14,7 +14,7 @@
       <h1>Contacts</h1>
       <p>Keep recipient addresses saved for your next email.</p>
     </div>
-    <a class="btn btn-primary" href="{{ url_for('compose') }}">Compose email</a>
+    <a class="btn btn-primary" href="{{ url_for('mail.compose') }}">Compose email</a>
   </header>
 
   <div class="manage-grid">
@@ -25,7 +25,7 @@
           <p>Contact details are private to your account.</p>
         </div>
       </div>
-      <form class="manage-form" method="post" action="{{ url_for('contacts') }}">
+      <form class="manage-form" method="post" action="{{ url_for('dashboard.contacts') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="add">
         <div class="acc-field">
@@ -47,7 +47,7 @@
           <p>CSV file with an <code>email</code> column and optional <code>name</code> column.</p>
         </div>
       </div>
-      <form class="manage-form" method="post" action="{{ url_for('contacts') }}" enctype="multipart/form-data">
+      <form class="manage-form" method="post" action="{{ url_for('dashboard.contacts') }}" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="action" value="import">
         <div class="acc-field">
@@ -74,10 +74,10 @@
           <tbody>
             {% for contact in contacts %}
             <tr>
-              <td>{{ contact.name or "—" }}</td>
+              <td>{{ contact.name or "Ã¢â‚¬â€" }}</td>
               <td class="manage-email">{{ contact.email }}</td>
               <td class="manage-action">
-                <form method="post" action="{{ url_for('delete_contact', contact_id=contact.id) }}">
+                <form method="post" action="{{ url_for('dashboard.delete_contact', contact_id=contact.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="link-btn" type="submit">Delete</button>
                 </form>

@@ -15,7 +15,7 @@
       <h1>Scheduled emails</h1>
       <p>Choose a future date and time in {{ clock.zone if clock is defined else "your app time zone" }}.</p>
     </div>
-    <a class="btn btn-quiet" href="{{ url_for('contacts') }}">Manage contacts</a>
+    <a class="btn btn-quiet" href="{{ url_for('dashboard.contacts') }}">Manage contacts</a>
   </header>
 
   {% if errors %}
@@ -34,7 +34,7 @@
         <p>Each recipient receives an individual message.</p>
       </div>
     </div>
-    <form class="manage-form schedule-form" method="post" action="{{ url_for('scheduled') }}">
+    <form class="manage-form schedule-form" method="post" action="{{ url_for('scheduled.scheduled') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="acc-field">
         <label class="acc-label" for="scheduled-recipient">Recipients</label>
@@ -43,7 +43,7 @@
           <label class="sr-only" for="saved-contact-picker">Choose saved contacts</label>
           <select class="acc-input" id="saved-contact-picker" multiple size="3" aria-describedby="saved-contact-hint">
             {% for contact in contacts %}
-              <option value="{{ contact.email }}">{{ contact.name ~ " — " if contact.name else "" }}{{ contact.email }}</option>
+              <option value="{{ contact.email }}">{{ contact.name ~ " Ã¢â‚¬â€ " if contact.name else "" }}{{ contact.email }}</option>
             {% endfor %}
           </select>
           <button class="btn btn-quiet" type="button" id="add-saved-contacts" data-target="scheduled-recipient">Add selected</button>
@@ -94,7 +94,7 @@
               </td>
               <td class="manage-action">
                 {% if item.status == "scheduled" %}
-                <form method="post" action="{{ url_for('cancel_schedule', schedule_id=item.id) }}">
+                <form method="post" action="{{ url_for('scheduled.cancel_schedule', schedule_id=item.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button class="link-btn" type="submit">Cancel</button>
                 </form>

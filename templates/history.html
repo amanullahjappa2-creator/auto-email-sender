@@ -22,7 +22,7 @@
       <h1>Email history</h1>
       <p>Recent email activity for your account.</p>
     </div>
-    <a class="btn btn-primary" href="{{ url_for('compose') }}">
+    <a class="btn btn-primary" href="{{ url_for('mail.compose') }}">
       <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
     </a>
   </header>
@@ -94,7 +94,7 @@
       <span class="empty-icon"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg></span>
       <h3 id="empty-title">No email activity yet</h3>
       <p>Every email you send appears here, with its status, so you can see what went out and what failed.</p>
-      <a class="btn btn-primary" href="{{ url_for('compose') }}">
+      <a class="btn btn-primary" href="{{ url_for('mail.compose') }}">
         <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Compose email
       </a>
     </div>
