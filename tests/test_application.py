@@ -916,6 +916,69 @@ class ApplicationSecurityTests(unittest.TestCase):
                 "A user-edited version that must be preserved.",
             )
 
+    def test_blueprints_are_registered_without_legacy_alias_endpoints(self):
+        endpoints = {rule.endpoint for rule in application.url_map.iter_rules()}
+        self.assertIn("auth.login", endpoints)
+        self.assertIn("admin.admin_dashboard", endpoints)
+        self.assertIn("scheduled.scheduled", endpoints)
+        self.assertNotIn("login", endpoints)
+        self.assertNotIn("admin_dashboard", endpoints)
+
+    def test_login_rate_limit_blocks_the_sixth_post_from_one_client(self):
+        client = application.test_client()
+        page = client.get("/login", base_url="https://localhost")
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"',
+            page.data,
+        ).group(1).decode()
+        application.config["TESTING"] = False
+        mailflow_app.limiter.reset()
+        try:
+            responses = [
+                client.post(
+                    "/login",
+                    base_url="https://localhost",
+                    headers={"Referer": "https://localhost/login"},
+                    data={
+                        "csrf_token": token,
+                        "email": "unknown@example.test",
+                        "password": "wrong-password",
+                    },
+                )
+                for _ in range(6)
+            ]
+        finally:
+            application.config["TESTING"] = True
+            mailflow_app.limiter.reset()
+        self.assertEqual([response.status_code for response in responses[:5]], [200] * 5)
+        self.assertEqual(responses[5].status_code, 429)
+
+    def test_scheduler_route_rejects_a_past_time(self):
+        user_id = self.create_user("scheduler-route@example.test")
+        client = self.authenticated_client(user_id)
+        page = client.get("/scheduled", base_url="https://localhost")
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"',
+            page.data,
+        ).group(1).decode()
+        past = (datetime.now() - timedelta(minutes=1)).replace(microsecond=0)
+        response = client.post(
+            "/scheduled",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/scheduled"},
+            data={
+                "csrf_token": token,
+                "recipient": "recipient@example.test",
+                "subject": "Past schedule",
+                "body": "This should not be queued.",
+                "scheduled_for": past.strftime("%Y-%m-%dT%H:%M"),
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Choose a time in the future", response.data)
+        with application.app_context():
+            self.assertEqual(ScheduledEmail.query.filter_by(user_id=user_id).count(), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
