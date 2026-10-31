@@ -1,18 +1,18 @@
-from flask import Blueprint
+from flask import Blueprint, current_app
 mail_bp = Blueprint('mail', __name__)
-from app import (
-    MAX_BODY, MAX_FILES, MAX_RECIPIENTS, MAX_SUBJECT, MAX_TEMPLATES,
-    MAX_TEMPLATE_NAME, MAX_TOTAL_BYTES, INSTANCE_DIR, save_template,
-    send_compose_emails, user_templates,
-)
+from config import INSTANCE_DIR
 from extensions import db
 from models import Contact, EmailLog, ScheduledEmail
 from template_models import EmailTemplate
-from compose_tools import ACCEPT_ATTRIBUTE, ALLOWED_LABEL, add_files, cleanup_old_drafts, delete_draft, delete_files, draft_dir, extract_addresses, format_size, is_valid_draft_id, list_files, new_draft_id, read_address_file, read_attachments
+from compose_tools import ACCEPT_ATTRIBUTE, ALLOWED_LABEL, MAX_FILES, MAX_TOTAL_BYTES, add_files, cleanup_old_drafts, delete_draft, delete_files, draft_dir, extract_addresses, format_size, is_valid_draft_id, list_files, new_draft_id, read_address_file, read_attachments
 from flask_login import current_user, login_required
 from flask import flash, redirect, render_template, request, url_for
 from sqlalchemy import or_
-from utils import check_compose, check_template, clean_body, merge_addresses, validate_email_address
+from utils import MAX_BODY, MAX_RECIPIENTS, MAX_SUBJECT, MAX_TEMPLATES, MAX_TEMPLATE_NAME, check_compose, check_template, clean_body, merge_addresses, validate_email_address
+
+
+def _service(name):
+    return current_app.extensions["mailflow_services"][name]
 
 @mail_bp.route("/compose", methods=["GET", "POST"])
 @login_required
@@ -81,7 +81,7 @@ def compose():
             )
             if not errors:
                 try:
-                    saved, created = save_template(
+                    saved, created = _service("save_template")(
                         form["template_name"], form["subject"], form["body"]
                     )
                 except ValueError as exc:
@@ -160,7 +160,7 @@ def compose():
                 if action == "send":
                     try:
                         attachment_data = read_attachments(folder) if folder else []
-                        results = send_compose_emails(
+                        results = _service("send_compose_emails")(
                             current_user.id,
                             recipients,
                             form["subject"],
@@ -216,7 +216,7 @@ def compose():
         notice_type=notice_type,
         draft_id=draft_id,
         attachments=attachments,
-        templates=user_templates(),
+        templates=_service("user_templates")(),
         contacts=(
             Contact.query.filter_by(user_id=current_user.id)
             .order_by(Contact.name, Contact.email)
@@ -252,7 +252,7 @@ def templates_list():
 
         if not errors:
             try:
-                saved, created = save_template(
+                saved, created = _service("save_template")(
                     form["template_name"], form["subject"], form["body"]
                 )
             except ValueError as exc:
@@ -273,7 +273,7 @@ def templates_list():
         form=form,
         errors=errors,
         field_errors=field_errors,
-        templates=user_templates(),
+        templates=_service("user_templates")(),
         limits={
             "name": MAX_TEMPLATE_NAME,
             "subject": MAX_SUBJECT,

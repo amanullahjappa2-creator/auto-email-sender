@@ -1,11 +1,6 @@
-from flask import Blueprint
+from flask import Blueprint, current_app
 admin_bp = Blueprint('admin', __name__)
-import app as app_module
-from app import (
-    ADMIN_CODE_MAX_ATTEMPTS, ADMIN_CODE_RESEND_SECONDS, ADMIN_CODE_TTL_SECONDS,
-    APP_TIMEZONE_NAME, admin_email_allowlist, is_admin_user,
-    require_admin, app,
-)
+from config import ADMIN_CODE_MAX_ATTEMPTS, ADMIN_CODE_RESEND_SECONDS, ADMIN_CODE_TTL_SECONDS
 from extensions import db
 from models import AdminGrant, AdminVerification, Contact, EmailLog, ScheduledEmail, SiteVisitor, User, UserSuspension
 from sqlalchemy import func, or_
@@ -13,7 +8,30 @@ from flask_login import current_user, login_required
 from flask import abort, flash, redirect, render_template, request, url_for
 from datetime import datetime, timedelta, timezone
 import hashlib, hmac, re, secrets, smtplib, time
-from utils import local_now, to_local, validate_email_address
+from utils import APP_TIMEZONE_NAME, local_now, to_local, validate_email_address
+
+
+def admin_email_allowlist():
+    granted_emails = db.session.query(AdminGrant.email).all()
+    return current_app.config["ADMIN_EMAILS"] | {
+        email.casefold() for (email,) in granted_emails
+    }
+
+
+def is_admin_user():
+    return (
+        current_user.is_authenticated
+        and current_user.email.casefold() in admin_email_allowlist()
+    )
+
+
+def require_admin():
+    if not is_admin_user():
+        abort(404)
+
+
+def _service(name):
+    return current_app.extensions["mailflow_services"][name]
 
 @admin_bp.route("/admin")
 @login_required
@@ -147,7 +165,7 @@ def admin_dashboard():
         suspended_user_ids=suspended_user_ids,
         admin_emails=admin_emails,
         admin_users=admin_users,
-        bootstrap_admin_emails=app.config["ADMIN_EMAILS"],
+        bootstrap_admin_emails=current_app.config["ADMIN_EMAILS"],
         admin_grants=AdminGrant.query.order_by(AdminGrant.created_at.desc()).all(),
         pending_verification=pending_verification,
     )
@@ -191,25 +209,25 @@ def admin_invite():
     challenge = AdminVerification(
         admin_user_id=current_user.id,
         target_email=target_email,
-        code_digest=app_module.admin_code_digest(current_user.id, target_email, code),
+        code_digest=_service("admin_code_digest")(current_user.id, target_email, code),
         expires_at=now + ADMIN_CODE_TTL_SECONDS,
         created_at=now,
     )
     db.session.add(challenge)
     db.session.commit()
 
-    primary_email = app.config["PRIMARY_ADMIN_EMAIL"]
+    primary_email = current_app.config["PRIMARY_ADMIN_EMAIL"]
     primary_admin = User.query.filter_by(email=primary_email).first()
-    if not primary_admin or primary_email not in app.config["ADMIN_EMAILS"]:
+    if not primary_admin or primary_email not in current_app.config["ADMIN_EMAILS"]:
         challenge.consumed = True
         db.session.commit()
         flash("The primary admin email is not configured correctly.", "error")
         return redirect(url_for("admin.admin_dashboard"))
 
     try:
-        app_module.send_admin_verification_code(primary_admin, primary_email, code)
+        _service("send_admin_verification_code")(primary_admin, primary_email, code)
     except (RuntimeError, ValueError, OSError, smtplib.SMTPException):
-        app.logger.exception("Admin verification email could not be sent.")
+        current_app.logger.exception("Admin verification email could not be sent.")
         challenge.consumed = True
         db.session.commit()
         flash(
@@ -248,7 +266,7 @@ def admin_verify_invite():
 
     is_valid_code = bool(re.fullmatch(r"\d{6}", code))
     if is_valid_code:
-        expected_digest = app_module.admin_code_digest(current_user.id, target_email, code)
+        expected_digest = _service("admin_code_digest")(current_user.id, target_email, code)
         is_valid_code = hmac.compare_digest(challenge.code_digest, expected_digest)
     if not is_valid_code:
         challenge.attempts += 1

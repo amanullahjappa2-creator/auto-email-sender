@@ -1,6 +1,5 @@
-from flask import Blueprint
+from flask import Blueprint, current_app
 auth_bp = Blueprint('auth', __name__)
-from app import ensure_sample_templates_for_user, app
 from extensions import db, limiter
 from models import User, UserSuspension
 from security import encrypt_secret
@@ -34,7 +33,9 @@ def register():
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
-            ensure_sample_templates_for_user(user.id)
+            current_app.extensions["mailflow_services"][
+                "ensure_sample_templates_for_user"
+            ](user.id)
 
             login_user(user)
             flash("Your account has been created. Configure email settings to start sending.", "success")
@@ -47,7 +48,7 @@ def register():
 @limiter.limit(
     "5 per minute",
     methods=["POST"],
-    exempt_when=lambda: app.config.get("TESTING", False),
+    exempt_when=lambda: current_app.config.get("TESTING", False),
 )
 def login():
     if current_user.is_authenticated:
@@ -124,7 +125,7 @@ def settings():
                 try:
                     user.encrypted_app_password = encrypt_secret(app_password)
                 except (RuntimeError, ValueError):
-                    app.logger.exception("Credential encryption failed.")
+                    current_app.logger.exception("Credential encryption failed.")
                     flash("Email settings could not be saved. Check server configuration.", "error")
                     return render_template("settings.html", user=user)
 

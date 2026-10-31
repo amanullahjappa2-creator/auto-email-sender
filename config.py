@@ -14,6 +14,10 @@ load_dotenv(BASE_DIR / ".env")
 INSTANCE_DIR = BASE_DIR / "instance"
 DATABASE_PATH = INSTANCE_DIR / "mailflow.db"
 
+ADMIN_CODE_TTL_SECONDS = 10 * 60
+ADMIN_CODE_RESEND_SECONDS = 60
+ADMIN_CODE_MAX_ATTEMPTS = 5
+
 
 class Config:
     SECRET_KEY = os.environ.get("FLASK_SECRET_KEY")

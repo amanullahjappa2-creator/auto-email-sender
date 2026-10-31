@@ -151,7 +151,7 @@ Available environment settings:
 | `DATABASE_URL` | No | Local SQLite database | SQLAlchemy database connection URL. |
 | `FLASK_DEBUG` | No | `0` | Set to `1` only for local development. Never enable debug mode in production. |
 | `RATE_LIMIT_STORAGE_URI` | No | In-memory | Shared storage URI for login rate limits in multi-worker deployments (for example, a protected Redis URL). |
-| `TRUSTED_PROXY_HOPS` | No | `1` | Number of trusted reverse-proxy hops used by `ProxyFix` for client IP and HTTPS headers; set to `0` when exposing the app directly. |
+| `TRUSTED_PROXY_HOPS` | No | `0` | Number of trusted reverse-proxy hops used by `ProxyFix`. Keep `0` for direct/local deployments; set it explicitly to `1` (or your actual proxy count) only behind trusted reverse proxies. |
 
 The `.env` file is loaded by the application and ignored by Git. VS Code
 terminal auto-loading of `.env` is disabled in the repository settings.
@@ -340,9 +340,10 @@ Before exposing an instance:
 - Preserve the encryption key across restarts and backups. Restrict access to
   database files, backups, and the instance directory.
 - Set `COOKIE_SECURE=1`, use HTTPS, and keep debug mode disabled.
-- Set `TRUSTED_PROXY_HOPS` to the number of reverse proxies in front of the
-  app. `ProxyFix` uses that value so login limits see the real client IP; use
-  `0` when no trusted proxy is present.
+- `TRUSTED_PROXY_HOPS` defaults to `0`, which is safest for direct/local
+  deployments. If the app is behind a trusted reverse proxy, explicitly set
+  it to the number of proxy hops (commonly `1`) so login limits see the real
+  client IP and HTTPS headers.
 - For multiple Gunicorn workers, configure shared Redis rate-limit storage and
   install the Redis client dependency:
 

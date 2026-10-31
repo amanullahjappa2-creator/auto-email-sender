@@ -87,9 +87,9 @@ app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
 app.config["RATELIMIT_STORAGE_URI"] = os.environ.get("RATE_LIMIT_STORAGE_URI", "memory://")
 app.config["RATELIMIT_DEFAULT"] = []
 try:
-    trusted_proxy_hops = max(0, int(os.environ.get("TRUSTED_PROXY_HOPS", "1")))
+    trusted_proxy_hops = max(0, int(os.environ.get("TRUSTED_PROXY_HOPS", "0")))
 except ValueError:
-    trusted_proxy_hops = 1
+    trusted_proxy_hops = 0
 app.wsgi_app = ProxyFix(
     app.wsgi_app,
     x_for=trusted_proxy_hops,
@@ -108,6 +108,9 @@ login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "info"
 login_manager.session_protection = app.config["SESSION_PROTECTION"]
 login_manager.init_app(app)
+
+# Route modules consume these through ``current_app.extensions`` so they do
+# not import the application module or create an app/module dependency cycle.
 
 MAX_RECIPIENTS = 120
 MAX_SUBJECT = 200
@@ -981,6 +984,18 @@ def merge_addresses(current_text, extra):
             added += 1
 
     return ", ".join(existing), added
+
+
+app.extensions["mailflow_services"] = {
+    # Resolve through module globals at call time so existing integrations and
+    # tests can still patch the compatibility functions exported by app.py.
+    "ensure_sample_templates_for_user": lambda *args, **kwargs: ensure_sample_templates_for_user(*args, **kwargs),
+    "save_template": lambda *args, **kwargs: save_template(*args, **kwargs),
+    "send_admin_verification_code": lambda *args, **kwargs: send_admin_verification_code(*args, **kwargs),
+    "send_compose_emails": lambda *args, **kwargs: send_compose_emails(*args, **kwargs),
+    "user_templates": lambda *args, **kwargs: user_templates(*args, **kwargs),
+    "admin_code_digest": lambda *args, **kwargs: admin_code_digest(*args, **kwargs),
+}
 
 
 # ---------------- Compose ----------------

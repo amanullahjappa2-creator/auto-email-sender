@@ -1,12 +1,11 @@
 from flask import Blueprint
 scheduled_bp = Blueprint('scheduled', __name__)
-from app import APP_TZ
 from extensions import db
 from models import Contact, ScheduledEmail
 from flask_login import current_user, login_required
 from flask import flash, redirect, render_template, request, url_for
 from datetime import datetime, timezone
-from utils import check_compose, clean_body, clock_parts, local_now
+from utils import APP_TZ, check_compose, clean_body, clock_parts, local_now
 
 @scheduled_bp.route("/scheduled", methods=["GET", "POST"])
 @login_required
