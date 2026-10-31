@@ -28,19 +28,9 @@ from flask import (
     session,
     url_for,
 )
-from flask_login import (
-    LoginManager,
-    current_user,
-    login_required,
-    login_user,
-    logout_user,
-)
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from flask_migrate import Migrate
+from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -49,13 +39,13 @@ from models import (
     AdminGrant,
     AdminVerification,
     Contact,
-    db,
     EmailLog,
     ScheduledEmail,
     SiteVisitor,
     User,
     UserSuspension,
 )
+from extensions import csrf, db, limiter, login_manager, migrate
 from security import encrypt_secret, decrypt_secret
 from compose_tools import (
     ACCEPT_ATTRIBUTE,
@@ -94,17 +84,13 @@ app.config["APP_NAME"] = "MailFlow Studio"
 # Total request size limit. The attachment rules themselves (file count,
 # 10 MB total, allowed types) are enforced in compose_tools.py.
 app.config["MAX_CONTENT_LENGTH"] = 15 * 1024 * 1024
+app.config["RATELIMIT_STORAGE_URI"] = os.environ.get("RATE_LIMIT_STORAGE_URI", "memory://")
+app.config["RATELIMIT_DEFAULT"] = []
 db.init_app(app)
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=app,
-    default_limits=[],
-    storage_uri=os.environ.get("RATE_LIMIT_STORAGE_URI", "memory://"),
-)
-migrate = Migrate(app, db)
-CSRFProtect(app)
+csrf.init_app(app)
+limiter.init_app(app)
+migrate.init_app(app, db)
 
-login_manager = LoginManager()
 login_manager.login_view = "login"
 login_manager.login_message = "Please log in to continue."
 login_manager.login_message_category = "info"

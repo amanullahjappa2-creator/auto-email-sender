@@ -1,6 +1,11 @@
 from flask import Blueprint
 auth_bp = Blueprint('auth', __name__)
-from app import *
+from app import clean_body, ensure_sample_templates_for_user, validate_email_address, app
+from extensions import db, limiter
+from models import User, UserSuspension
+from security import encrypt_secret
+from flask_login import current_user, login_required, login_user, logout_user
+from flask import flash, redirect, render_template, request, url_for
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():

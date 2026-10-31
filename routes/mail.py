@@ -1,6 +1,18 @@
 from flask import Blueprint
 mail_bp = Blueprint('mail', __name__)
-from app import *
+from app import (
+    MAX_BODY, MAX_FILES, MAX_RECIPIENTS, MAX_SUBJECT, MAX_TEMPLATES,
+    MAX_TEMPLATE_NAME, MAX_TOTAL_BYTES, INSTANCE_DIR, check_compose,
+    check_template, clean_body, merge_addresses, save_template,
+    send_compose_emails, user_templates, validate_email_address,
+)
+from extensions import db
+from models import Contact, EmailLog, ScheduledEmail
+from template_models import EmailTemplate
+from compose_tools import ACCEPT_ATTRIBUTE, ALLOWED_LABEL, add_files, cleanup_old_drafts, delete_draft, delete_files, draft_dir, extract_addresses, format_size, is_valid_draft_id, list_files, new_draft_id, read_address_file, read_attachments
+from flask_login import current_user, login_required
+from flask import flash, redirect, render_template, request, url_for
+from sqlalchemy import or_
 
 @mail_bp.route("/compose", methods=["GET", "POST"])
 @login_required

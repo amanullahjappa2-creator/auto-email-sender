@@ -4,11 +4,9 @@
 from datetime import datetime, timezone
 
 from flask_login import UserMixin
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import UniqueConstraint
 from werkzeug.security import check_password_hash, generate_password_hash
-
-db = SQLAlchemy()
+from extensions import db
 
 
 class User(UserMixin, db.Model):

@@ -1,7 +1,18 @@
 from flask import Blueprint
 admin_bp = Blueprint('admin', __name__)
 import app as app_module
-from app import *
+from app import (
+    ADMIN_CODE_MAX_ATTEMPTS, ADMIN_CODE_RESEND_SECONDS, ADMIN_CODE_TTL_SECONDS,
+    APP_TIMEZONE_NAME, admin_email_allowlist, is_admin_user, local_now,
+    require_admin, to_local, validate_email_address, app,
+)
+from extensions import db
+from models import AdminGrant, AdminVerification, Contact, EmailLog, ScheduledEmail, SiteVisitor, User, UserSuspension
+from sqlalchemy import func, or_
+from flask_login import current_user, login_required
+from flask import abort, flash, redirect, render_template, request, url_for
+from datetime import datetime, timedelta, timezone
+import hashlib, hmac, re, secrets, smtplib, time
 
 @admin_bp.route("/admin")
 @login_required
