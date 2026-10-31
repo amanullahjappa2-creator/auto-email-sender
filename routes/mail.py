@@ -11,8 +11,8 @@ from sqlalchemy import or_
 from utils import MAX_BODY, MAX_RECIPIENTS, MAX_SUBJECT, MAX_TEMPLATES, MAX_TEMPLATE_NAME, check_compose, check_template, clean_body, merge_addresses, validate_email_address
 
 
-def _service(name):
-    return current_app.extensions["mailflow_services"][name]
+def _services():
+    return current_app.extensions["mailflow_services"]
 
 @mail_bp.route("/compose", methods=["GET", "POST"])
 @login_required
@@ -81,7 +81,7 @@ def compose():
             )
             if not errors:
                 try:
-                    saved, created = _service("save_template")(
+                    saved, created = _services().save_template(
                         form["template_name"], form["subject"], form["body"]
                     )
                 except ValueError as exc:
@@ -160,7 +160,7 @@ def compose():
                 if action == "send":
                     try:
                         attachment_data = read_attachments(folder) if folder else []
-                        results = _service("send_compose_emails")(
+                        results = _services().send_compose_emails(
                             current_user.id,
                             recipients,
                             form["subject"],
@@ -216,7 +216,7 @@ def compose():
         notice_type=notice_type,
         draft_id=draft_id,
         attachments=attachments,
-        templates=_service("user_templates")(),
+        templates=_services().user_templates(),
         contacts=(
             Contact.query.filter_by(user_id=current_user.id)
             .order_by(Contact.name, Contact.email)
@@ -252,7 +252,7 @@ def templates_list():
 
         if not errors:
             try:
-                saved, created = _service("save_template")(
+                saved, created = _services().save_template(
                     form["template_name"], form["subject"], form["body"]
                 )
             except ValueError as exc:
@@ -273,7 +273,7 @@ def templates_list():
         form=form,
         errors=errors,
         field_errors=field_errors,
-        templates=_service("user_templates")(),
+        templates=_services().user_templates(),
         limits={
             "name": MAX_TEMPLATE_NAME,
             "subject": MAX_SUBJECT,

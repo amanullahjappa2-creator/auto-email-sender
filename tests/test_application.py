@@ -6,8 +6,11 @@ import smtplib
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
+
+from werkzeug.datastructures import FileStorage
 
 
 _TEST_DIRECTORY = tempfile.TemporaryDirectory(prefix="mailflow-tests-")
@@ -43,6 +46,7 @@ from models import (
     db,
 )
 from template_models import EmailTemplate
+from compose_tools import add_files, check_file
 
 application = mailflow_app.app
 application.config.update(TESTING=True)
@@ -853,6 +857,89 @@ class ApplicationSecurityTests(unittest.TestCase):
         self.assertEqual(processed, 3)
         process.assert_called_once_with()
         print_output.assert_called_once_with("Processed 3 scheduled email(s).")
+
+    def test_scheduler_recovers_stale_sending_job_before_processing_due_work(self):
+        user_id = self.create_user("stale-scheduler@example.test")
+        now = datetime.now(timezone.utc)
+        with application.app_context():
+            stale = ScheduledEmail(
+                user_id=user_id,
+                recipient="stale@example.test",
+                subject="Stale subject",
+                body="Stale message",
+                scheduled_for=now - timedelta(hours=3),
+                status="sending",
+                started_at=now - timedelta(hours=3),
+            )
+            db.session.add(stale)
+            db.session.commit()
+
+            with patch.object(mailflow_app, "send_compose_emails") as send:
+                processed = mailflow_app.process_due_schedules()
+
+            self.assertEqual(processed, 0)
+            send.assert_not_called()
+            refreshed = db.session.get(ScheduledEmail, stale.id)
+            self.assertEqual(refreshed.status, "failed")
+            self.assertIn("Delivery was interrupted", refreshed.error_message)
+
+    def test_attachment_validation_rejects_fake_pdf_without_saving_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            upload = FileStorage(
+                stream=BytesIO(b"not actually a PDF"),
+                filename="statement.pdf",
+            )
+
+            saved, problems = add_files(directory, [upload])
+
+            self.assertEqual(saved, 0)
+            self.assertIn("does not look like a real .pdf file", problems[0])
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
+    def test_attachment_validation_accepts_real_signature_and_rejects_unknown_type(self):
+        with tempfile.TemporaryDirectory() as directory:
+            valid_upload = FileStorage(
+                stream=BytesIO(b"%PDF-1.7\nminimal test file"),
+                filename="statement.pdf",
+            )
+            saved, problems = add_files(directory, [valid_upload])
+            self.assertEqual((saved, problems), (1, []))
+            self.assertEqual(len(list(Path(directory).iterdir())), 1)
+
+        self.assertIn("not an allowed file type", check_file("payload.exe", b"MZ"))
+
+    def test_admin_verification_rejects_non_six_digit_code(self):
+        admin_id = self.create_user("admin@example.test")
+        self.create_user("target@example.test")
+        application.config["ADMIN_EMAILS"] = frozenset({"admin@example.test"})
+        application.config["PRIMARY_ADMIN_EMAIL"] = "admin@example.test"
+        client = self.authenticated_client(admin_id)
+        token = self.admin_csrf_token(client)
+
+        with patch.object(mailflow_app, "send_admin_verification_code"):
+            client.post(
+                "/admin/admins/invite",
+                base_url="https://localhost",
+                headers={"Referer": "https://localhost/admin"},
+                data={"csrf_token": token, "email": "target@example.test"},
+            )
+
+        response = client.post(
+            "/admin/admins/verify",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/admin"},
+            data={
+                "csrf_token": token,
+                "email": "target@example.test",
+                "code": "12345",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        with application.app_context():
+            challenge = AdminVerification.query.one()
+            self.assertEqual(challenge.attempts, 1)
+            self.assertFalse(challenge.consumed)
+            self.assertEqual(AdminGrant.query.count(), 0)
 
     def test_compose_accepts_display_name_and_email_recipient_format(self):
         recipients, errors = mailflow_app.check_compose(

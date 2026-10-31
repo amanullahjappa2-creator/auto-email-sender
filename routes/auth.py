@@ -33,9 +33,9 @@ def register():
             user.set_password(password)
             db.session.add(user)
             db.session.commit()
-            current_app.extensions["mailflow_services"][
-                "ensure_sample_templates_for_user"
-            ](user.id)
+            current_app.extensions["mailflow_services"].ensure_sample_templates_for_user(
+                user.id
+            )
 
             login_user(user)
             flash("Your account has been created. Configure email settings to start sending.", "success")

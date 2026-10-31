@@ -30,8 +30,8 @@ def require_admin():
         abort(404)
 
 
-def _service(name):
-    return current_app.extensions["mailflow_services"][name]
+def _services():
+    return current_app.extensions["mailflow_services"]
 
 @admin_bp.route("/admin")
 @login_required
@@ -209,7 +209,7 @@ def admin_invite():
     challenge = AdminVerification(
         admin_user_id=current_user.id,
         target_email=target_email,
-        code_digest=_service("admin_code_digest")(current_user.id, target_email, code),
+        code_digest=_services().admin_code_digest(current_user.id, target_email, code),
         expires_at=now + ADMIN_CODE_TTL_SECONDS,
         created_at=now,
     )
@@ -225,7 +225,7 @@ def admin_invite():
         return redirect(url_for("admin.admin_dashboard"))
 
     try:
-        _service("send_admin_verification_code")(primary_admin, primary_email, code)
+        _services().send_admin_verification_code(primary_admin, primary_email, code)
     except (RuntimeError, ValueError, OSError, smtplib.SMTPException):
         current_app.logger.exception("Admin verification email could not be sent.")
         challenge.consumed = True
@@ -266,7 +266,7 @@ def admin_verify_invite():
 
     is_valid_code = bool(re.fullmatch(r"\d{6}", code))
     if is_valid_code:
-        expected_digest = _service("admin_code_digest")(current_user.id, target_email, code)
+        expected_digest = _services().admin_code_digest(current_user.id, target_email, code)
         is_valid_code = hmac.compare_digest(challenge.code_digest, expected_digest)
     if not is_valid_code:
         challenge.attempts += 1

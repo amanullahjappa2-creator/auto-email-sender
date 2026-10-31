@@ -47,6 +47,7 @@ from models import (
 )
 from extensions import csrf, db, limiter, login_manager, migrate
 from security import encrypt_secret, decrypt_secret
+from services import MailFlowServices
 from compose_tools import (
     ACCEPT_ATTRIBUTE,
     ALLOWED_LABEL,
@@ -986,16 +987,16 @@ def merge_addresses(current_text, extra):
     return ", ".join(existing), added
 
 
-app.extensions["mailflow_services"] = {
+app.extensions["mailflow_services"] = MailFlowServices(
     # Resolve through module globals at call time so existing integrations and
     # tests can still patch the compatibility functions exported by app.py.
-    "ensure_sample_templates_for_user": lambda *args, **kwargs: ensure_sample_templates_for_user(*args, **kwargs),
-    "save_template": lambda *args, **kwargs: save_template(*args, **kwargs),
-    "send_admin_verification_code": lambda *args, **kwargs: send_admin_verification_code(*args, **kwargs),
-    "send_compose_emails": lambda *args, **kwargs: send_compose_emails(*args, **kwargs),
-    "user_templates": lambda *args, **kwargs: user_templates(*args, **kwargs),
-    "admin_code_digest": lambda *args, **kwargs: admin_code_digest(*args, **kwargs),
-}
+    ensure_sample_templates_for_user=lambda *args, **kwargs: ensure_sample_templates_for_user(*args, **kwargs),
+    save_template=lambda *args, **kwargs: save_template(*args, **kwargs),
+    send_admin_verification_code=lambda *args, **kwargs: send_admin_verification_code(*args, **kwargs),
+    send_compose_emails=lambda *args, **kwargs: send_compose_emails(*args, **kwargs),
+    user_templates=lambda *args, **kwargs: user_templates(*args, **kwargs),
+    admin_code_digest=lambda *args, **kwargs: admin_code_digest(*args, **kwargs),
+)
 
 
 # ---------------- Compose ----------------
