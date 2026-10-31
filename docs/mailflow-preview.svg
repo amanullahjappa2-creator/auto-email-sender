@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 680" role="img" aria-labelledby="title desc">
+  <title id="title">MailFlow Studio dashboard preview</title>
+  <desc id="desc">A compact illustration of the MailFlow Studio dashboard with delivery metrics and a compose panel.</desc>
+  <rect width="1200" height="680" rx="28" fill="#101827"/>
+  <rect x="28" y="28" width="1144" height="624" rx="20" fill="#f7fafc"/>
+  <rect x="28" y="28" width="230" height="624" rx="20" fill="#172554"/>
+  <circle cx="72" cy="75" r="18" fill="#38bdf8"/>
+  <text x="105" y="83" font-family="Arial,sans-serif" font-size="24" font-weight="700" fill="white">MailFlow</text>
+  <text x="58" y="150" font-family="Arial,sans-serif" font-size="17" fill="#bfdbfe">Dashboard</text>
+  <text x="58" y="195" font-family="Arial,sans-serif" font-size="17" fill="#bfdbfe">Compose</text>
+  <text x="58" y="240" font-family="Arial,sans-serif" font-size="17" fill="#bfdbfe">Contacts</text>
+  <text x="58" y="285" font-family="Arial,sans-serif" font-size="17" fill="#bfdbfe">Scheduled</text>
+  <text x="58" y="330" font-family="Arial,sans-serif" font-size="17" fill="#bfdbfe">History</text>
+  <text x="300" y="88" font-family="Arial,sans-serif" font-size="28" font-weight="700" fill="#0f172a">Good afternoon</text>
+  <text x="300" y="118" font-family="Arial,sans-serif" font-size="15" fill="#64748b">Your private email workspace</text>
+  <rect x="300" y="155" width="250" height="120" rx="16" fill="#e0f2fe"/>
+  <text x="324" y="190" font-family="Arial,sans-serif" font-size="15" fill="#0369a1">Accepted today</text>
+  <text x="324" y="238" font-family="Arial,sans-serif" font-size="38" font-weight="700" fill="#0c4a6e">128</text>
+  <rect x="570" y="155" width="250" height="120" rx="16" fill="#ecfdf5"/>
+  <text x="594" y="190" font-family="Arial,sans-serif" font-size="15" fill="#047857">Delivery rate</text>
+  <text x="594" y="238" font-family="Arial,sans-serif" font-size="38" font-weight="700" fill="#065f46">96%</text>
+  <rect x="840" y="155" width="276" height="120" rx="16" fill="#fef3c7"/>
+  <text x="864" y="190" font-family="Arial,sans-serif" font-size="15" fill="#92400e">Queued</text>
+  <text x="864" y="238" font-family="Arial,sans-serif" font-size="38" font-weight="700" fill="#78350f">12</text>
+  <rect x="300" y="310" width="520" height="290" rx="16" fill="white" stroke="#e2e8f0"/>
+  <text x="328" y="350" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#0f172a">Weekly activity</text>
+  <line x1="335" y1="550" x2="785" y2="550" stroke="#cbd5e1"/>
+  <g fill="#38bdf8"><rect x="355" y="465" width="34" height="85" rx="6"/><rect x="420" y="420" width="34" height="130" rx="6"/><rect x="485" y="445" width="34" height="105" rx="6"/><rect x="550" y="385" width="34" height="165" rx="6"/><rect x="615" y="430" width="34" height="120" rx="6"/><rect x="680" y="400" width="34" height="150" rx="6"/></g>
+  <rect x="850" y="310" width="266" height="290" rx="16" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="878" y="350" font-family="Arial,sans-serif" font-size="19" font-weight="700" fill="#0f172a">Compose</text>
+  <rect x="878" y="380" width="210" height="38" rx="8" fill="white" stroke="#cbd5e1"/><rect x="878" y="432" width="210" height="38" rx="8" fill="white" stroke="#cbd5e1"/><rect x="878" y="484" width="210" height="62" rx="8" fill="white" stroke="#cbd5e1"/><rect x="878" y="561" width="92" height="25" rx="12" fill="#0284c7"/>
+</svg>

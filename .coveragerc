@@ -1,0 +1,15 @@
+[run]
+branch = True
+source =
+    add_sample_templates
+    app
+    compose_tools
+    config
+    models
+    security
+    send_emails
+    template_models
+
+[report]
+show_missing = True
+skip_covered = True

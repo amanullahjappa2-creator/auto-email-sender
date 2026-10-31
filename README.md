@@ -1,13 +1,38 @@
 # MailFlow Studio
 
 [![CI](https://github.com/amanullahjappa2-creator/auto-email-sender/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/amanullahjappa2-creator/auto-email-sender/actions/workflows/ci.yml)
+[![Coverage](coverage.svg)](https://github.com/amanullahjappa2-creator/auto-email-sender/actions/workflows/ci.yml)
 
 MailFlow Studio is a self-hosted Flask application for writing and sending
 individual emails, managing contacts, reusing templates, and scheduling
 messages. Each recipient receives a separate email; recipients are not shown
 each other's addresses.
 
+The GitHub repository is named `auto-email-sender`; **MailFlow Studio** is the
+product and web application name.
+
 Built by **AmanUllah**.
+
+## Quick start
+
+```powershell
+git clone https://github.com/amanullahjappa2-creator/auto-email-sender.git; cd auto-email-sender
+python -m venv .venv; .\.venv\Scripts\Activate.ps1; python -m pip install -r requirements-dev.txt
+Copy-Item .env.example .env  # Add locally generated FLASK_SECRET_KEY and MAIL_SETTINGS_ENCRYPTION_KEY before startup.
+```
+
+Then apply the database migrations with `flask --app app db upgrade`, start the
+web app with `python app.py`, and start the scheduler in another terminal with
+`python app.py --scheduler`. The detailed setup and secrets instructions are
+below.
+
+> **Use responsibly:** Send only to people who have agreed to receive your
+> messages. Follow applicable laws and your SMTP provider's anti-spam and
+> sending policies; identify yourself accurately and honor opt-out requests.
+> This app is not a mailing-list consent manager, and a per-message recipient
+> cap does not override provider limits.
+
+![MailFlow Studio dashboard preview](docs/mailflow-preview.svg)
 
 ## Features
 
@@ -52,23 +77,8 @@ Built by **AmanUllah**.
 
 SMTP server acceptance is not a guarantee that a message reaches the
 recipient's inbox. Delivery can be delayed, filtered, or rejected by the
-recipient's provider.
-
-## Project health and polish
-
-This project is organized around safe defaults, real privacy protections, and
-clear operational workflow for deployment and maintenance. It includes:
-
-- a private `.env` setup for sensitive credentials
-- a database-backed admin panel with admin verification and account
-  suspension controls
-- health monitoring via `/healthz`
-- secure headers and request-size controls
-- a quick health probe script in [scripts/check_app_health.py](scripts/check_app_health.py)
-- contributor guidance in [CONTRIBUTING.md](CONTRIBUTING.md)
-- a clear security reporting process in [SECURITY.md](SECURITY.md)
-
-For roadmap and future milestones, see [docs/ROADMAP.md](docs/ROADMAP.md).
+recipient's provider. Provider sending quotas vary by account and can change;
+check the current limits for the SMTP account you configure.
 
 ## Requirements
 
@@ -84,7 +94,7 @@ the requirements.
 
 ### 1. Get the source and create an environment
 
-```bash
+```powershell
 git clone https://github.com/amanullahjappa2-creator/auto-email-sender.git
 cd auto-email-sender
 python -m venv .venv
@@ -110,7 +120,7 @@ source .venv/bin/activate
 ### 2. Install dependencies and configure secrets
 
 ```bash
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 ```
 
 Copy `.env.example` to `.env` and generate **your own** secrets locally:
@@ -140,6 +150,7 @@ Available environment settings:
 | `PRIMARY_ADMIN_EMAIL` | No | — | Registered primary admin email that receives every admin-grant verification code. |
 | `DATABASE_URL` | No | Local SQLite database | SQLAlchemy database connection URL. |
 | `FLASK_DEBUG` | No | `0` | Set to `1` only for local development. Never enable debug mode in production. |
+| `RATE_LIMIT_STORAGE_URI` | No | In-memory | Shared storage URI for login rate limits in multi-worker deployments (for example, a protected Redis URL). |
 
 The `.env` file is loaded by the application and ignored by Git. VS Code
 terminal auto-loading of `.env` is disabled in the repository settings.
@@ -149,6 +160,10 @@ to the already registered primary owner's account email, then restart the app.
 Keep the bootstrap list limited to the owner; additional admins should be
 granted from **Admin panel** instead of editing code or environment settings.
 Only signed-in allowlisted admins can open `/admin`.
+
+The login form is rate-limited to slow repeated password guesses. The default
+in-memory limiter is suitable for local development and a single process only;
+use a shared backend such as Redis when running multiple web workers.
 
 The panel shows account-wide usage totals and daily anonymous browser-session
 counts. It also lets admins view basic account details and suspend/reactivate
@@ -292,11 +307,16 @@ To send, configure these values in a private `.env` file:
 | `SENDER_NAME` | No | Empty | Optional display name. |
 
 Then run `python send_emails.py`. Options include `--csv`, `--template`,
-`--subject`, `--delay`, and `--attach`; see `python send_emails.py --help`.
-The optional attachment is treated as a PDF. This utility sends real email
-when run without `--dry-run`; use only with recipients you are authorized to
-contact. Its `sent_log.csv` and recipient data are private local files—do not
-commit them.
+`--subject`, `--delay`, `--daily-limit`, and `--attach`; see
+`python send_emails.py --help`. Attachment MIME type is inferred from its file
+name, with unknown types sent as `application/octet-stream`. The default
+`--daily-limit 450` caps successful sends recorded by this utility in its local
+log for the current day; set a lower value if your provider requires it. This
+is a local safety cap, not an SMTP quota check, and it cannot count messages
+sent by the web app, other tools, or other devices. This utility sends real
+email when run without `--dry-run`; use only with recipients you are authorized
+to contact. Its `sent_log.csv` and recipient data are private local files—do
+not commit them.
 
 ## Production deployment
 
@@ -330,17 +350,22 @@ Before exposing an instance:
 
 The app provides security features but does not by itself guarantee a secure
 deployment. Protect the host, secrets, database, backups, and SMTP account.
+Only send messages to recipients who have given appropriate consent; honor
+opt-out requests, follow applicable anti-spam laws and provider policies, and
+verify current account-specific sending quotas before using either sender.
 
 ## Development and tests
 
-Run the automated application and security regression tests:
+Run the application and security regression tests with coverage:
 
 ```bash
-python -m unittest discover --start-directory tests --verbose
+coverage run --rcfile=.coveragerc -m unittest discover --start-directory tests --verbose
+coverage report --rcfile=.coveragerc
 ```
 
-GitHub Actions runs this test suite on Python 3.11, 3.12, and 3.13 for pushes
-and pull requests targeting `main`.
+GitHub Actions runs the tests and enforces a minimum 35% measured coverage on
+Python 3.11, 3.12, and 3.13 for pushes and pull requests targeting `main`.
+Each run also publishes downloadable XML and SVG coverage reports.
 
 ## Project layout
 

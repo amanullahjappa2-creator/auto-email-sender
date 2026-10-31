@@ -11,18 +11,21 @@ Usage:
 
 import argparse
 import csv
+import mimetypes
 import os
 import random
 import smtplib
 import ssl
 import sys
 import time
+from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
 from string import Template
 
 BASE_DIR = Path(__file__).parent
 LOG_FILE = BASE_DIR / "sent_log.csv"
+DEFAULT_DAILY_LIMIT = 450
 
 
 def load_env(path: Path) -> None:
@@ -49,7 +52,30 @@ def already_sent() -> set[str]:
     if not LOG_FILE.exists():
         return set()
     with LOG_FILE.open(newline="", encoding="utf-8") as f:
-        return {row["email"].lower() for row in csv.DictReader(f)}
+        return {
+            row["email"].strip().casefold()
+            for row in csv.DictReader(f)
+            if row.get("email") and row.get("status", "").casefold() == "sent"
+        }
+
+
+def sent_today(log_path: Path = LOG_FILE, today=None) -> int:
+    """Count successful sends recorded by this utility for the current local day."""
+    if not log_path.exists():
+        return 0
+
+    today = today or datetime.now().date()
+    count = 0
+    with log_path.open(newline="", encoding="utf-8") as f:
+        for row in csv.DictReader(f):
+            if row.get("status", "").casefold() != "sent":
+                continue
+            try:
+                sent_at = datetime.strptime(row.get("time", ""), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                continue
+            count += sent_at.date() == today
+    return count
 
 
 def log_sent(email: str, status: str) -> None:
@@ -69,13 +95,29 @@ def build_message(sender, name_from, to, subject, body, attach):
     msg.set_content(body)
     if attach:
         path = Path(attach)
+        mime_type, _encoding = mimetypes.guess_type(path.name)
+        # Windows commonly reports CSV as application/vnd.ms-excel. CSV is a
+        # text attachment, so keep the portable and semantically correct type.
+        if path.suffix.casefold() == ".csv":
+            mime_type = "text/csv"
+        maintype, separator, subtype = (mime_type or "application/octet-stream").partition("/")
         msg.add_attachment(
             path.read_bytes(),
-            maintype="application",
-            subtype="pdf",
+            maintype=maintype,
+            subtype=subtype if separator else "octet-stream",
             filename=path.name,
         )
     return msg
+
+
+def render_message(subject_template, body_template, row):
+    """Render one recipient's content or return a clear template problem."""
+    try:
+        return subject_template.substitute(row), body_template.substitute(row), None
+    except KeyError as exc:
+        return None, None, f"CSV column {exc.args[0]!r} is missing"
+    except ValueError as exc:
+        return None, None, f"invalid template placeholder: {exc}"
 
 
 def main() -> int:
@@ -83,10 +125,24 @@ def main() -> int:
     parser.add_argument("--csv", default="recipients.csv")
     parser.add_argument("--template", default="template.txt")
     parser.add_argument("--subject", default="Inquiry about $program at $university")
-    parser.add_argument("--attach", help="Optional PDF to attach, e.g. cv.pdf")
+    parser.add_argument("--attach", help="Optional file to attach; MIME type is inferred from its name")
     parser.add_argument("--delay", type=int, default=45, help="Base seconds between emails")
+    parser.add_argument(
+        "--daily-limit",
+        type=int,
+        default=DEFAULT_DAILY_LIMIT,
+        help=(
+            "Maximum successful sends per local day recorded by this utility "
+            f"(default: {DEFAULT_DAILY_LIMIT}; set to your provider's limit)"
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true", help="Preview without sending")
     args = parser.parse_args()
+
+    if args.delay < 0:
+        parser.error("--delay cannot be negative.")
+    if args.daily_limit < 1:
+        parser.error("--daily-limit must be at least 1.")
 
     load_env(BASE_DIR / ".env")
     sender = os.environ.get("EMAIL_ADDRESS")
@@ -104,8 +160,19 @@ def main() -> int:
     recipients = read_recipients(Path(args.csv))
     done = already_sent()
 
-    todo = [r for r in recipients if r.get("email", "").lower() not in done]
+    todo = [
+        row
+        for row in recipients
+        if row.get("email", "").strip().casefold() not in done
+    ]
     print(f"{len(recipients)} in CSV, {len(recipients) - len(todo)} already sent, {len(todo)} to go.")
+    successful_today = sent_today()
+    if not args.dry_run and successful_today >= args.daily_limit:
+        print(
+            f"Daily send limit reached ({successful_today}/{args.daily_limit}). "
+            "No messages were sent."
+        )
+        return 1
 
     server = None
     if not args.dry_run and todo:
@@ -114,25 +181,36 @@ def main() -> int:
 
     try:
         for i, row in enumerate(todo, 1):
-            try:
-                body = template.substitute(row)
-                subject = subject_t.substitute(row)
-            except KeyError as e:
-                print(f"[skip] {row.get('email')}: CSV column {e} missing")
+            recipient = row.get("email", "").strip()
+            if not recipient:
+                print(f"[skip] CSV row {i}: email column is missing or empty")
+                continue
+
+            subject, body, problem = render_message(subject_t, template, row)
+            if problem:
+                print(f"[skip] {recipient}: {problem}")
                 continue
 
             if args.dry_run:
-                print(f"\n--- [{i}] To: {row['email']} ---\nSubject: {subject}\n\n{body}")
+                print(f"\n--- [{i}] To: {recipient} ---\nSubject: {subject}\n\n{body}")
                 continue
 
-            msg = build_message(sender, name_from, row["email"], subject, body, args.attach)
+            if successful_today >= args.daily_limit:
+                print(
+                    f"Daily send limit reached ({successful_today}/{args.daily_limit}); "
+                    "remaining messages were not sent."
+                )
+                break
+
+            msg = build_message(sender, name_from, recipient, subject, body, args.attach)
             try:
                 server.send_message(msg)
-                log_sent(row["email"], "sent")
-                print(f"[{i}/{len(todo)}] sent -> {row['email']}")
+                log_sent(recipient, "sent")
+                successful_today += 1
+                print(f"[{i}/{len(todo)}] sent -> {recipient}")
             except Exception as e:  # keep going if one address fails
-                log_sent(row["email"], f"failed: {e}")
-                print(f"[{i}/{len(todo)}] FAILED -> {row['email']}: {e}")
+                log_sent(recipient, f"failed: {e}")
+                print(f"[{i}/{len(todo)}] FAILED -> {recipient}: {e}")
 
             if i < len(todo):
                 time.sleep(args.delay + random.randint(0, 15))

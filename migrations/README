@@ -1,0 +1,5 @@
+MailFlow Studio database migrations
+
+Apply migrations with `flask --app app db upgrade`.
+For an existing database created by an older release, back it up first and
+run `flask --app app db stamp head` once before future upgrades.
