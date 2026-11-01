@@ -1,7 +1,7 @@
 from flask import Blueprint
 dashboard_bp = Blueprint('dashboard', __name__)
 from extensions import db
-from models import Contact, EmailLog, ScheduledEmail
+from models import Contact, EmailLog, ScheduledEmail, Suppressed
 from flask_login import current_user, login_required
 from flask import abort, flash, redirect, render_template, request, url_for
 import csv, io
@@ -157,6 +157,20 @@ def contacts():
                     except (UnicodeDecodeError, csv.Error):
                         db.session.rollback()
                         flash("The uploaded file is not a readable UTF-8 CSV.", "error")
+        elif action == "suppress":
+            email = request.form.get("email", "").strip().casefold()
+            if not validate_email_address(email):
+                flash("Enter a valid email address.", "error")
+            else:
+                existing = Suppressed.query.filter_by(
+                    user_id=current_user.id, email=email
+                ).first()
+                if existing is None:
+                    db.session.add(Suppressed(user_id=current_user.id, email=email))
+                    db.session.commit()
+                    flash("Address added to the suppression list.", "success")
+                else:
+                    flash("That address is already suppressed.", "info")
         else:
             abort(400)
 
@@ -168,7 +182,26 @@ def contacts():
         .limit(5000)
         .all()
     )
-    return render_template("contacts.html", contacts=saved_contacts)
+    suppressed = (
+        Suppressed.query.filter_by(user_id=current_user.id)
+        .order_by(Suppressed.email)
+        .limit(5000)
+        .all()
+    )
+    return render_template("contacts.html", contacts=saved_contacts, suppressed=suppressed)
+
+
+@dashboard_bp.route("/suppression/<int:suppressed_id>/delete", methods=["POST"])
+@login_required
+def delete_suppressed(suppressed_id):
+    entry = Suppressed.query.filter_by(
+        id=suppressed_id,
+        user_id=current_user.id,
+    ).first_or_404()
+    db.session.delete(entry)
+    db.session.commit()
+    flash("Address removed from the suppression list.", "success")
+    return redirect(url_for("dashboard.contacts"))
 
 
 @dashboard_bp.route("/contacts/<int:contact_id>/delete", methods=["POST"])

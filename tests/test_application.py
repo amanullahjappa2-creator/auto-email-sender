@@ -40,6 +40,7 @@ from models import (
     Contact,
     EmailLog,
     ScheduledEmail,
+    Suppressed,
     SiteVisitor,
     User,
     UserSuspension,
@@ -756,6 +757,71 @@ class ApplicationSecurityTests(unittest.TestCase):
             self.assertEqual(
                 EmailLog.query.filter_by(user_id=user_id, status="failed").count(),
                 3,
+            )
+
+    def test_sending_personalizes_each_message_from_saved_contact(self):
+        class CaptureServer:
+            def __init__(self):
+                self.messages = []
+
+            def send_message(self, message):
+                self.messages.append(message)
+                return {}
+
+            def quit(self):
+                pass
+
+        user_id = self.create_user("sender-personalized@example.test")
+        server = CaptureServer()
+        with application.app_context():
+            user = db.session.get(User, user_id)
+            user.mail_address = "sender-personalized@example.test"
+            user.encrypted_app_password = "encrypted"
+            db.session.add(
+                Contact(
+                    user_id=user_id,
+                    name="Ada Lovelace",
+                    email="ada@example.test",
+                )
+            )
+            db.session.commit()
+            with patch.object(mailflow_app, "decrypt_secret", return_value="secret"), patch.object(
+                mailflow_app, "open_smtp_connection", return_value=server
+            ):
+                results = mailflow_app.send_compose_emails(
+                    user_id,
+                    ["ada@example.test"],
+                    "Hello {{name}}",
+                    "Dear {{name}}, your address is {{email}}.",
+                )
+
+            self.assertEqual(results, [("ada@example.test", "sent")])
+            self.assertEqual(str(server.messages[0]["Subject"]), "Hello Ada Lovelace")
+            self.assertIn(
+                "Dear Ada Lovelace, your address is ada@example.test.",
+                server.messages[0].get_content(),
+            )
+
+    def test_suppressed_recipient_is_skipped_without_smtp_connection(self):
+        user_id = self.create_user("sender-suppressed@example.test")
+        with application.app_context():
+            db.session.add(
+                Suppressed(user_id=user_id, email="opted-out@example.test")
+            )
+            db.session.commit()
+            with patch.object(mailflow_app, "open_smtp_connection") as connect:
+                results = mailflow_app.send_compose_emails(
+                    user_id,
+                    ["opted-out@example.test"],
+                    "Subject",
+                    "Body",
+                )
+
+            self.assertEqual(results, [("opted-out@example.test", "suppressed")])
+            connect.assert_not_called()
+            self.assertEqual(
+                EmailLog.query.filter_by(user_id=user_id, status="suppressed").count(),
+                1,
             )
 
     def test_scheduler_processes_due_email_and_leaves_future_email_queued(self):

@@ -182,6 +182,28 @@ class Contact(db.Model):
     )
 
 
+class Suppressed(db.Model):
+    """A recipient who has opted out for one MailFlow account."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    email = db.Column(db.String(254), nullable=False)
+    suppressed_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "email", name="uq_suppressed_user_email"),
+    )
+
+
 class ScheduledEmail(db.Model):
     """An email waiting for delivery by the scheduler worker."""
 

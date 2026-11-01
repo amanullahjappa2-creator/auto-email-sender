@@ -125,6 +125,7 @@
           <p class="hint" id="recipient-hint">
             Up to {{ limits.max_recipients }} addresses, separated by commas or new lines. Each person gets their own copy and never sees the others.
           </p>
+          <p class="hint">Use <code>{{ '{{name}}' }}</code> or <code>{{ '{{email}}' }}</code> in the subject or message. Saved contact details are filled in for each recipient.</p>
           {{ field_error("recipient") }}
 
           <div class="file-pick">

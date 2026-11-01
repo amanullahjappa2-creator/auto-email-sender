@@ -45,6 +45,19 @@ web app with `python app.py`, and start the scheduler in another terminal with
 `python app.py --scheduler`. The detailed setup and secrets instructions are
 below.
 
+### Docker Compose
+
+Docker Compose starts the web app, its scheduler worker, and PostgreSQL:
+
+```bash
+cp .env.example .env
+# Set FLASK_SECRET_KEY, MAIL_SETTINGS_ENCRYPTION_KEY, and POSTGRES_PASSWORD in .env
+docker compose up --build
+```
+
+Open `http://localhost:5000`. The web container applies migrations before it
+starts; keep the named volumes for PostgreSQL data and private attachments.
+
 > **Use responsibly:** Send only to people who have agreed to receive your
 > messages. Follow applicable laws and your SMTP provider's anti-spam and
 > sending policies; identify yourself accurately and honor opt-out requests.
@@ -82,6 +95,10 @@ static mockups:
   composing or scheduling, and import UTF-8 CSV files. Imports accept up to
   500 rows and 1 MB per file; use an `email` or `address` column and an
   optional `name` or `full name` column.
+- **Personalized templates:** Use `{{name}}` and `{{email}}` in a subject or
+  message; each recipient gets values from their saved contact.
+- **Suppression list:** Record opt-out addresses with their date and skip them
+  for both immediate and scheduled delivery.
 - **Reusable templates:** Every account gets 20 built-in starter templates.
   Create and manage up to 60 templates per account; loading one copies its
   subject and message into Compose for editing before sending.
@@ -296,9 +313,11 @@ may be `name` or `full name`. Duplicate, invalid, and excess rows are skipped.
 Every account receives 20 built-in starter templates at registration. Loading
 a template copies its name, subject, and message body—not recipients or
 attachments—into Compose. You can edit the content and preview it before
-sending. Placeholders in a template are plain text for you to replace;
-contact details are not automatically substituted. Accounts can hold up to
-60 templates in total.
+sending. Use `{{name}}` and `{{email}}` in the subject or message to personalize
+each copy from the saved contact matching that recipient. If no contact name
+is saved, `{{name}}` becomes an empty string. Accounts can hold up to 60
+templates in total. Addresses added to the Contacts suppression list are
+skipped by both immediate and scheduled sends.
 
 The seeding script is available to add missing starter templates across all
 existing accounts in a database:

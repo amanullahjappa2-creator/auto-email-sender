@@ -12,7 +12,7 @@
 - Better dashboard insights and a lightweight export option
 - More guided email-composition workflows for teams and agencies
 - Additional security review checks for scheduled sending and attachments
-- Better deployment templates for Docker and cloud hosting
+- Better deployment templates for cloud hosting
 
 ## Release philosophy
 

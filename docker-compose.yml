@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: mailflow
+      POSTGRES_USER: mailflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-in-local-env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mailflow -d mailflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build: .
+    environment:
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:?set FLASK_SECRET_KEY}
+      MAIL_SETTINGS_ENCRYPTION_KEY: ${MAIL_SETTINGS_ENCRYPTION_KEY:?set MAIL_SETTINGS_ENCRYPTION_KEY}
+      DATABASE_URL: postgresql+psycopg://mailflow:${POSTGRES_PASSWORD:-change-me-in-local-env}@postgres:5432/mailflow
+      COOKIE_SECURE: "0"
+    command: >-
+      sh -c "flask --app app db upgrade && exec python app.py --host=0.0.0.0 --port=5000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - app_instance:/app/instance
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  scheduler:
+    build: .
+    environment:
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:?set FLASK_SECRET_KEY}
+      MAIL_SETTINGS_ENCRYPTION_KEY: ${MAIL_SETTINGS_ENCRYPTION_KEY:?set MAIL_SETTINGS_ENCRYPTION_KEY}
+      DATABASE_URL: postgresql+psycopg://mailflow:${POSTGRES_PASSWORD:-change-me-in-local-env}@postgres:5432/mailflow
+      COOKIE_SECURE: "0"
+    command: ["python", "app.py", "--scheduler"]
+    volumes:
+      - app_instance:/app/instance
+    depends_on:
+      web:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  app_instance:

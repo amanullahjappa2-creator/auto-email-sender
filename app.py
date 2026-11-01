@@ -41,6 +41,7 @@ from models import (
     Contact,
     EmailLog,
     ScheduledEmail,
+    Suppressed,
     SiteVisitor,
     User,
     UserSuspension,
@@ -620,12 +621,44 @@ def save_email_log(user_id, recipient, subject, status):
     )
 
 
+def render_recipient_template(text, email, name):
+    """Fill the safe web-template placeholders for one recipient."""
+    values = {"name": name or "", "email": email}
+    return re.sub(
+        r"\{\{\s*(name|email)\s*\}\}",
+        lambda match: values[match.group(1)],
+        text,
+    )
+
+
 def send_compose_emails(user_id, recipients, subject, body, attachments=()):
     """Send individual messages using the specified user's SMTP credentials."""
     user = db.session.get(User, user_id)
 
     if user and db.session.get(UserSuspension, user.id):
         raise ValueError("This account is suspended and cannot send email.")
+
+    normalized_recipients = [recipient.strip().casefold() for recipient in recipients]
+    suppressed = {
+        email
+        for (email,) in db.session.query(Suppressed.email)
+        .filter(
+            Suppressed.user_id == user_id,
+            Suppressed.email.in_(normalized_recipients),
+        )
+        .all()
+    }
+    results = []
+    active_recipients = []
+    for recipient, normalized in zip(recipients, normalized_recipients):
+        if normalized in suppressed:
+            results.append((recipient, "suppressed"))
+            save_email_log(user_id, recipient, subject, "suppressed")
+        else:
+            active_recipients.append(recipient)
+    if not active_recipients:
+        db.session.commit()
+        return results
 
     if not user or not user.mail_address or not user.encrypted_app_password:
         raise ValueError(
@@ -651,14 +684,23 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
     if not host or not isinstance(port, int) or not 1 <= port <= 65535:
         raise ValueError("Check your SMTP host and port in Settings.")
 
-    results = []
     server = None
     connection_lost = False
 
     try:
         server = open_smtp_connection(user.mail_address, password, host, port)
 
-        for recipient in recipients:
+        contact_names = {
+            email: name
+            for email, name in db.session.query(Contact.email, Contact.name)
+            .filter(
+                Contact.user_id == user_id,
+                Contact.email.in_([item.casefold() for item in active_recipients]),
+            )
+            .all()
+        }
+
+        for recipient in active_recipients:
             message = EmailMessage()
             sender_name = (user.sender_name or "").strip()
 
@@ -671,8 +713,9 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
                 message["From"] = user.mail_address
 
             message["To"] = recipient
-            message["Subject"] = subject
-            message.set_content(body)
+            recipient_name = contact_names.get(recipient.casefold(), "")
+            message["Subject"] = render_recipient_template(subject, recipient, recipient_name)
+            message.set_content(render_recipient_template(body, recipient, recipient_name))
 
             for file_name, data, maintype, subtype in attachments:
                 message.add_attachment(
@@ -700,7 +743,7 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
                 break
 
         processed = {recipient for recipient, _status in results}
-        for recipient in recipients:
+        for recipient in active_recipients:
             if recipient not in processed:
                 results.append((recipient, "failed"))
                 save_email_log(user_id, recipient, subject, "failed")
@@ -714,7 +757,7 @@ def send_compose_emails(user_id, recipients, subject, body, attachments=()):
 
         # Log failures for recipients not processed yet.
         processed = {recipient for recipient, _status in results}
-        for recipient in recipients:
+        for recipient in active_recipients:
             if recipient not in processed:
                 results.append((recipient, "failed"))
                 save_email_log(user_id, recipient, subject, "failed")
@@ -796,7 +839,7 @@ def process_due_schedules():
             )
             schedule.status = (
                 "sent"
-                if results and all(status == "sent" for _, status in results)
+                if results and all(status in {"sent", "suppressed"} for _, status in results)
                 else "failed"
             )
             if schedule.status == "failed":
