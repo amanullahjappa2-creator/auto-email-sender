@@ -13,6 +13,23 @@ product and web application name.
 
 Built by **AmanUllah**.
 
+## Why I built this
+
+I am a BS Information Technology student at Times University, Multan. I built
+MailFlow Studio to turn repetitive outreach into a focused workflow for sending
+individual, personalized emails without copying and pasting each message by
+hand.
+
+Along the way I learned how to structure a Flask application with blueprints,
+store SMTP credentials with Fernet encryption, manage schema changes with
+migrations, rate-limit logins behind a reverse proxy, and package the project
+with Docker and a CI pipeline that runs linting, a dependency audit, and tests.
+It also taught me to treat consent seriously: the app skips recipients who have
+opted out.
+
+My next project is Smart Crop Doctor, a bilingual (Urdu and English) mobile app
+for detecting crop leaf diseases.
+
 ## Quick start
 
 Windows PowerShell:
