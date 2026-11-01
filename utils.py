@@ -108,6 +108,16 @@ def validate_email_address(address):
     return len(address) <= 254 and EMAIL_RE.fullmatch(address) is not None
 
 
+def render_recipient_template(text, email, name):
+    """Fill the safe web-template placeholders for one recipient."""
+    values = {"name": name or "", "email": email}
+    return re.sub(
+        r"\{\{\s*(name|email)\s*\}\}",
+        lambda match: values[match.group(1)],
+        text,
+    )
+
+
 def normalize_recipient(address):
     candidate = (address or "").strip()
     match = re.search(r"<([^<>]+)>", candidate) if candidate else None

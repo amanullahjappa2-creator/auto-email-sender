@@ -8,8 +8,7 @@ from compose_tools import ACCEPT_ATTRIBUTE, ALLOWED_LABEL, MAX_FILES, MAX_TOTAL_
 from flask_login import current_user, login_required
 from flask import flash, redirect, render_template, request, url_for
 from sqlalchemy import or_
-from utils import MAX_BODY, MAX_RECIPIENTS, MAX_SUBJECT, MAX_TEMPLATES, MAX_TEMPLATE_NAME, check_compose, check_template, clean_body, merge_addresses, validate_email_address
-from app import render_recipient_template
+from utils import MAX_BODY, MAX_RECIPIENTS, MAX_SUBJECT, MAX_TEMPLATES, MAX_TEMPLATE_NAME, check_compose, check_template, clean_body, merge_addresses, render_recipient_template, validate_email_address
 
 
 def _services():

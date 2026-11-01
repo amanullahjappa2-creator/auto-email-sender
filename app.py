@@ -41,6 +41,7 @@ from extensions import csrf, db, limiter, login_manager, migrate
 from security import decrypt_secret
 from services import MailFlowServices
 from template_models import EmailTemplate
+from utils import render_recipient_template
 
 
 # Load local environment settings before initializing the application.
@@ -591,16 +592,6 @@ def save_email_log(user_id, recipient, subject, status):
             subject=subject,
             status=status,
         )
-    )
-
-
-def render_recipient_template(text, email, name):
-    """Fill the safe web-template placeholders for one recipient."""
-    values = {"name": name or "", "email": email}
-    return re.sub(
-        r"\{\{\s*(name|email)\s*\}\}",
-        lambda match: values[match.group(1)],
-        text,
     )
 
 
