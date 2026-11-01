@@ -36,4 +36,6 @@ python -m unittest tests.test_application -q
 - Keep each pull request focused on one concern.
 - Explain the problem, the fix, and any validation performed.
 - Include screenshots or examples when the UI changes.
-- Keep commit messages clear and action-oriented.
+- Use Conventional Commit prefixes in commit messages, such as `feat:`,
+  `fix:`, `docs:`, and `test:`. Keep this convention consistent across
+  companion projects too, including Smart Crop Doctor.

@@ -15,11 +15,30 @@ Built by **AmanUllah**.
 
 ## Quick start
 
+Windows PowerShell:
+
 ```powershell
-git clone https://github.com/amanullahjappa2-creator/auto-email-sender.git; cd auto-email-sender
-python -m venv .venv; .\.venv\Scripts\Activate.ps1; python -m pip install -r requirements-dev.txt
-Copy-Item .env.example .env  # Add locally generated FLASK_SECRET_KEY and MAIL_SETTINGS_ENCRYPTION_KEY before startup.
+git clone https://github.com/amanullahjappa2-creator/auto-email-sender.git
+cd auto-email-sender
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+Copy-Item .env.example .env
 ```
+
+macOS/Linux:
+
+```bash
+git clone https://github.com/amanullahjappa2-creator/auto-email-sender.git
+cd auto-email-sender
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+cp .env.example .env
+```
+
+Add locally generated `FLASK_SECRET_KEY` and `MAIL_SETTINGS_ENCRYPTION_KEY`
+to `.env` before starting the app.
 
 Then apply the database migrations with `flask --app app db upgrade`, start the
 web app with `python app.py`, and start the scheduler in another terminal with
@@ -32,7 +51,14 @@ below.
 > This app is not a mailing-list consent manager, and a per-message recipient
 > cap does not override provider limits.
 
-![MailFlow Studio dashboard preview](docs/mailflow-preview.svg)
+### Screenshots from the running app
+
+These screenshots are captured from the local MailFlow Studio application, not
+static mockups:
+
+![MailFlow Studio login](docs/screenshots/login.png)
+![MailFlow Studio dashboard](docs/screenshots/dashboard.png)
+![MailFlow Studio compose](docs/screenshots/compose.png)
 
 ## Features
 
@@ -377,8 +403,10 @@ coverage run --rcfile=.coveragerc -m unittest discover --start-directory tests -
 coverage report --rcfile=.coveragerc
 ```
 
-GitHub Actions runs the tests and enforces a minimum 35% measured coverage on
-Python 3.11, 3.12, and 3.13 for pushes and pull requests targeting `main`.
+GitHub Actions runs the tests and currently enforces a minimum 55% measured
+coverage on Python 3.11, 3.12, and 3.13 for pushes and pull requests targeting
+`main`. The next target is 65%; raise the floor again once delivery and
+scheduler coverage reaches that level.
 Each run also publishes downloadable XML and SVG coverage reports.
 
 ## Project layout

@@ -41,7 +41,8 @@ jobs:
       - name: Run tests with coverage
         run: |
           coverage run --rcfile=.coveragerc -m unittest discover --start-directory tests --verbose
-          coverage report --rcfile=.coveragerc --fail-under=50
+          # Raise this floor to 65% once delivery and scheduler coverage catches up.
+          coverage report --rcfile=.coveragerc --fail-under=55
           coverage xml --rcfile=.coveragerc
           coverage-badge -o coverage.svg
 
