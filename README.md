@@ -59,6 +59,7 @@ static mockups:
 ![MailFlow Studio login](docs/screenshots/login.png)
 ![MailFlow Studio dashboard](docs/screenshots/dashboard.png)
 ![MailFlow Studio compose](docs/screenshots/compose.png)
+![MailFlow Studio dashboard in dark mode](docs/screenshots/dashboard-dark.png)
 
 ## Features
 
