@@ -253,7 +253,7 @@
       <div class="panel-head">
         <div>
           <h2 id="preview-title">Preview</h2>
-          <p>How the email reads to each person.</p>
+          <p>How the email reads to each person. Showing personalization for {{ preview.personalized_for if preview else "the first recipient" }}.</p>
         </div>
         <span class="state" id="preview-state"{% if not preview %} hidden{% endif %}>Up to date</span>
       </div>

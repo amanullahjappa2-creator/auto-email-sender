@@ -9,6 +9,7 @@ from flask_login import current_user, login_required
 from flask import flash, redirect, render_template, request, url_for
 from sqlalchemy import or_
 from utils import MAX_BODY, MAX_RECIPIENTS, MAX_SUBJECT, MAX_TEMPLATES, MAX_TEMPLATE_NAME, check_compose, check_template, clean_body, merge_addresses, validate_email_address
+from app import render_recipient_template
 
 
 def _services():
@@ -148,13 +149,28 @@ def compose():
 
             if not errors:
                 files = list_files(folder) if folder else []
+                preview_recipient = recipients[0]
+                preview_contact = Contact.query.filter_by(
+                    user_id=current_user.id,
+                    email=preview_recipient.casefold(),
+                ).first()
+                preview_name = preview_contact.name if preview_contact else ""
                 preview = {
                     "recipients": recipients,
                     "count": len(recipients),
-                    "subject": form["subject"],
-                    "body": form["body"],
-                    "words": len(form["body"].split()),
+                    "subject": render_recipient_template(
+                        form["subject"], preview_recipient, preview_name
+                    ),
+                    "body": render_recipient_template(
+                        form["body"], preview_recipient, preview_name
+                    ),
+                    "words": len(
+                        render_recipient_template(
+                            form["body"], preview_recipient, preview_name
+                        ).split()
+                    ),
                     "attachments": files,
+                    "personalized_for": preview_name or preview_recipient,
                 }
 
                 if action == "send":

@@ -5,7 +5,7 @@ from models import User, UserSuspension
 from security import encrypt_secret
 from flask_login import current_user, login_required, login_user, logout_user
 from flask import flash, redirect, render_template, request, url_for
-from utils import clean_body, validate_email_address
+from utils import validate_email_address
 
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():

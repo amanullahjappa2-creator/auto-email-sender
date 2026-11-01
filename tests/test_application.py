@@ -598,6 +598,40 @@ class ApplicationSecurityTests(unittest.TestCase):
         )
         self.assertNotIn(b"private-needle@example.test", private_compose_response.data)
 
+    def test_compose_preview_renders_contact_placeholders(self):
+        user_id = self.create_user("preview@example.test")
+        with application.app_context():
+            db.session.add(
+                Contact(
+                    user_id=user_id,
+                    name="Preview Person",
+                    email="preview-person@example.test",
+                )
+            )
+            db.session.commit()
+
+        client = self.authenticated_client(user_id)
+        page = client.get("/compose", base_url="https://localhost")
+        token = re.search(
+            rb'<input[^>]*name="csrf_token"[^>]*value="([^"]+)"', page.data
+        ).group(1).decode()
+        response = client.post(
+            "/compose",
+            base_url="https://localhost",
+            headers={"Referer": "https://localhost/compose"},
+            data={
+                "csrf_token": token,
+                "action": "preview",
+                "recipient": "preview-person@example.test",
+                "subject": "Hello {{name}}",
+                "body": "Dear {{name}}, contact: {{email}}",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Hello Preview Person", response.data)
+        self.assertIn(b"Dear Preview Person, contact: preview-person@example.test", response.data)
+
     def test_login_cookie_uses_secure_flags(self):
         user_id = self.create_user("login@example.test")
         client = application.test_client()

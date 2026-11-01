@@ -3,14 +3,13 @@
 Script to check existing templates in the database.
 """
 
-import os
 import sys
 from pathlib import Path
 
 # Add the project root to Python path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from app import app, db
+from app import app
 from models import User
 from template_models import EmailTemplate
 
