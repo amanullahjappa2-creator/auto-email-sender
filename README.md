@@ -16,9 +16,10 @@ Built by **AmanUllah**.
 ## Why I built this
 
 I am a BS Information Technology student at Times University, Multan. I built
-MailFlow Studio to turn repetitive outreach into a focused workflow for sending
-individual, personalized emails without copying and pasting each message by
-hand.
+MailFlow Studio after seeing how much time university applications can take:
+the same core message often needs to be adapted for different programs and
+recipients. I wanted a focused workflow for sending those individual,
+personalized emails without copying and pasting each message by hand.
 
 Along the way I learned how to structure a Flask application with blueprints,
 store SMTP credentials with Fernet encryption, manage schema changes with
