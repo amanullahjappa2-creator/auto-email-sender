@@ -110,7 +110,7 @@
             <label class="sr-only" for="saved-contact-picker">Choose saved contacts</label>
             <select class="input" id="saved-contact-picker" multiple size="3" aria-describedby="saved-contact-hint">
               {% for contact in contacts %}
-                <option value="{{ contact.email }}">{{ contact.name ~ " Ã¢â‚¬â€ " if contact.name else "" }}{{ contact.email }}</option>
+                <option value="{{ contact.email }}">{{ contact.name ~ " — " if contact.name else "" }}{{ contact.email }}</option>
               {% endfor %}
             </select>
             <button class="btn btn-quiet" type="button" id="add-saved-contacts" data-target="recipient">Add selected</button>

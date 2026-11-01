@@ -20,7 +20,7 @@
       <dd class="stat-note">Unique browser sessions</dd>
     </div>
     <div class="stat">
-      <dt>Visitor sessions Ã‚Â· 30 days</dt>
+      <dt>Visitor sessions · 30 days</dt>
       <dd class="stat-num">{{ stats.visitors_30d }}</dd>
       <dd class="stat-note">One count per browser each day</dd>
     </div>
@@ -42,7 +42,7 @@
     <div class="stat">
       <dt>Total email attempts</dt>
       <dd class="stat-num">{{ stats.emails_total }}</dd>
-      <dd class="stat-note">{{ stats.emails_sent }} sent Ã‚Â· {{ stats.emails_failed }} failed</dd>
+      <dd class="stat-note">{{ stats.emails_sent }} sent · {{ stats.emails_failed }} failed</dd>
     </div>
     <div class="stat">
       <dt>Scheduled emails</dt>
@@ -60,7 +60,7 @@
     <div class="panel-head">
       <div>
         <h2 id="visits-title">Daily visitor sessions</h2>
-        <p>Last 30 days Ã‚Â· {{ timezone_name }}</p>
+        <p>Last 30 days · {{ timezone_name }}</p>
       </div>
     </div>
     {% set peak_visits = daily_visits|map(attribute="count")|max %}
@@ -80,7 +80,7 @@
     <div class="panel-head">
       <div>
         <h2 id="email-activity-title">Email activity</h2>
-        <p>Successes and failures over the last 30 days Ã‚Â· {{ timezone_name }}</p>
+        <p>Successes and failures over the last 30 days · {{ timezone_name }}</p>
       </div>
     </div>
     {% set peak_email_sent = daily_email_activity|map(attribute='sent')|list|max|default(0) %}
@@ -137,7 +137,7 @@
         <li>
           <span class="admin-user-copy">
             <strong>{{ user.full_name }}</strong>
-            <small>{{ user.email }}{% if user.email.casefold() in bootstrap_admin_emails %} Ã‚Â· Primary admin{% else %} Ã‚Â· Verified grant{% endif %}</small>
+            <small>{{ user.email }}{% if user.email.casefold() in bootstrap_admin_emails %} · Primary admin{% else %} · Verified grant{% endif %}</small>
           </span>
           {% for grant in admin_grants if grant.email.casefold() == user.email.casefold() %}
           <form method="post" action="{{ url_for('admin.admin_revoke', grant_id=grant.id) }}">
@@ -175,7 +175,7 @@
         <li>
           <span class="admin-user-copy">
             <strong>{{ user.full_name }}</strong>
-            <small>{{ user.email }} Ã‚Â· Joined {{ user.created_at|local_time("%d %b %Y") }}</small>
+            <small>{{ user.email }} · Joined {{ user.created_at|local_time("%d %b %Y") }}</small>
           </span>
           <span class="admin-user-state">
             {% if has_admin_access %}<span class="pill pill-admin">Admin</span>{% endif %}

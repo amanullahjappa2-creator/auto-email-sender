@@ -56,7 +56,7 @@
         {% for item in results.emails %}
         <li class="search-result">
           <span class="search-result-icon"><svg class="icon" aria-hidden="true"><use href="#i-mail"/></svg></span>
-          <span class="search-result-copy"><strong>{{ item.subject }}</strong><small>{{ item.recipient }} Ã‚Â· {{ item.sent_at|local_time("%d %b %Y, %I:%M %p") }}</small></span>
+          <span class="search-result-copy"><strong>{{ item.subject }}</strong><small>{{ item.recipient }} · {{ item.sent_at|local_time("%d %b %Y, %I:%M %p") }}</small></span>
           {% set kind = item.status|lower if item.status|lower in ("sent", "failed", "scheduled") else "other" %}
           <span class="badge badge-{{ kind }}">{{ item.status|capitalize }}</span>
         </li>
@@ -75,7 +75,7 @@
         {% for item in results.scheduled %}
         <li class="search-result">
           <span class="search-result-icon"><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg></span>
-          <span class="search-result-copy"><strong>{{ item.subject }}</strong><small>{{ item.recipient }} Ã‚Â· {{ item.scheduled_for|local_time("%d %b %Y, %I:%M %p") }}</small></span>
+          <span class="search-result-copy"><strong>{{ item.subject }}</strong><small>{{ item.recipient }} · {{ item.scheduled_for|local_time("%d %b %Y, %I:%M %p") }}</small></span>
           {% set kind = "scheduled" if item.status in ("scheduled", "sending") else item.status|lower %}
           <span class="badge badge-{{ kind }}">{{ item.status|capitalize }}</span>
         </li>
@@ -94,7 +94,7 @@
         {% for item in results.templates %}
         <li class="search-result">
           <span class="search-result-icon"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg></span>
-          <span class="search-result-copy"><strong>{{ item.name }}</strong><small>{{ item.subject }} Ã‚Â· {{ item.body|striptags|truncate(100, True, "...") }}</small></span>
+          <span class="search-result-copy"><strong>{{ item.name }}</strong><small>{{ item.subject }} · {{ item.body|striptags|truncate(100, True, "...") }}</small></span>
           <a class="btn btn-quiet" href="{{ url_for('mail.compose', template=item.id) }}">Use template</a>
         </li>
         {% endfor %}

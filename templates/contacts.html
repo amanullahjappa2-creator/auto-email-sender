@@ -74,7 +74,7 @@
           <tbody>
             {% for contact in contacts %}
             <tr>
-              <td>{{ contact.name or "Ã¢â‚¬â€" }}</td>
+              <td>{{ contact.name or "—" }}</td>
               <td class="manage-email">{{ contact.email }}</td>
               <td class="manage-action">
                 <form method="post" action="{{ url_for('dashboard.delete_contact', contact_id=contact.id) }}">

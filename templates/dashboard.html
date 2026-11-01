@@ -175,7 +175,7 @@
     {% endif %}
     <ol class="steps checklist">
       <li{% if setup.account_ready %} class="is-done"{% endif %}>
-        <span class="step-no" aria-hidden="true">{{ "Ã¢Å“â€œ" if setup.account_ready else "1" }}</span>
+        <span class="step-no" aria-hidden="true">{{ "✓" if setup.account_ready else "1" }}</span>
         <div>
           <strong>Connect your Gmail account{% if setup.account_ready %}<span class="sr-only"> (done)</span>{% endif %}</strong>
           {% if setup.account_ready %}
@@ -186,7 +186,7 @@
         </div>
       </li>
       <li{% if setup.has_emails %} class="is-done"{% endif %}>
-        <span class="step-no" aria-hidden="true">{{ "Ã¢Å“â€œ" if setup.has_emails else "2" }}</span>
+        <span class="step-no" aria-hidden="true">{{ "✓" if setup.has_emails else "2" }}</span>
         <div>
           <strong>Send your first email{% if setup.has_emails %}<span class="sr-only"> (done)</span>{% endif %}</strong>
           {% if setup.has_emails %}
