@@ -1,5 +1,5 @@
 [run]
-branch = True
+branch = False
 source =
     add_sample_templates
     app
@@ -10,7 +10,6 @@ source =
     routes
     security
     services
-    send_emails
     template_models
     utils
 

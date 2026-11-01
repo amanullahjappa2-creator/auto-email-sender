@@ -38,11 +38,16 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements-dev.txt
 
+      - name: Lint with Ruff
+        run: ruff check .
+
+      - name: Audit dependencies
+        run: pip-audit -r requirements.txt
+
       - name: Run tests with coverage
         run: |
           coverage run --rcfile=.coveragerc -m unittest discover --start-directory tests --verbose
-          # Raise this floor to 65% once delivery and scheduler coverage catches up.
-          coverage report --rcfile=.coveragerc --fail-under=55
+          coverage report --rcfile=.coveragerc --fail-under=65
           coverage xml --rcfile=.coveragerc
           coverage-badge -o coverage.svg
 

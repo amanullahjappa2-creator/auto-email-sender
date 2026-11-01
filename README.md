@@ -423,10 +423,9 @@ coverage run --rcfile=.coveragerc -m unittest discover --start-directory tests -
 coverage report --rcfile=.coveragerc
 ```
 
-GitHub Actions runs the tests and currently enforces a minimum 55% measured
+GitHub Actions runs the tests and enforces a minimum 65% measured
 coverage on Python 3.11, 3.12, and 3.13 for pushes and pull requests targeting
-`main`. The next target is 65%; raise the floor again once delivery and
-scheduler coverage reaches that level.
+`main`. Raise the floor again as delivery and scheduler coverage grows.
 Each run also publishes downloadable XML and SVG coverage reports.
 
 ## Project layout

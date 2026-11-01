@@ -4,7 +4,8 @@ from extensions import db
 from models import Contact, EmailLog, ScheduledEmail, Suppressed
 from flask_login import current_user, login_required
 from flask import abort, flash, redirect, render_template, request, url_for
-import csv, io
+import csv
+import io
 from utils import APP_TIMEZONE_NAME, accepted_rate, build_week, clock_parts, first_name_of, greeting_for, local_now, setup_status, to_local, validate_email_address
 
 @dashboard_bp.route("/")

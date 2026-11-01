@@ -824,6 +824,85 @@ class ApplicationSecurityTests(unittest.TestCase):
                 1,
             )
 
+    def test_sending_logs_all_recipients_when_smtp_setup_fails(self):
+        user_id = self.create_user("smtp-failure@example.test")
+        with application.app_context():
+            user = db.session.get(User, user_id)
+            user.mail_address = "smtp-failure@example.test"
+            user.encrypted_app_password = "encrypted"
+            db.session.commit()
+            with patch.object(mailflow_app, "decrypt_secret", return_value="secret"), patch.object(
+                mailflow_app,
+                "open_smtp_connection",
+                side_effect=OSError("connection refused"),
+            ):
+                results = mailflow_app.send_compose_emails(
+                    user_id,
+                    ["one@example.test", "two@example.test"],
+                    "Subject",
+                    "Body",
+                )
+
+            self.assertEqual(
+                results,
+                [("one@example.test", "failed"), ("two@example.test", "failed")],
+            )
+            self.assertEqual(
+                EmailLog.query.filter_by(user_id=user_id, status="failed").count(),
+                2,
+            )
+
+    def test_sending_rejects_sender_name_with_line_breaks(self):
+        class Server:
+            def quit(self):
+                pass
+
+        user_id = self.create_user("sender-name@example.test")
+        with application.app_context():
+            user = db.session.get(User, user_id)
+            user.mail_address = "sender-name@example.test"
+            user.sender_name = "Bad\nName"
+            user.encrypted_app_password = "encrypted"
+            db.session.commit()
+            with patch.object(mailflow_app, "decrypt_secret", return_value="secret"), patch.object(
+                mailflow_app, "open_smtp_connection", return_value=Server()
+            ):
+                with self.assertRaisesRegex(ValueError, "line breaks"):
+                    mailflow_app.send_compose_emails(
+                        user_id, ["recipient@example.test"], "Subject", "Body"
+                    )
+
+            self.assertEqual(EmailLog.query.filter_by(user_id=user_id).count(), 0)
+
+    def test_scheduler_marks_value_error_and_logs_failed_recipients(self):
+        user_id = self.create_user("scheduler-value-error@example.test")
+        with application.app_context():
+            schedule = ScheduledEmail(
+                user_id=user_id,
+                recipient="value-error@example.test",
+                subject="Subject",
+                body="Body",
+                scheduled_for=datetime.now(timezone.utc) - timedelta(minutes=1),
+            )
+            db.session.add(schedule)
+            db.session.commit()
+            with patch.object(
+                mailflow_app,
+                "send_compose_emails",
+                side_effect=ValueError("SMTP settings are incomplete"),
+            ):
+                self.assertEqual(mailflow_app.process_due_schedules(), 1)
+
+            self.assertEqual(db.session.get(ScheduledEmail, schedule.id).status, "failed")
+            self.assertEqual(
+                EmailLog.query.filter_by(
+                    user_id=user_id,
+                    recipient="value-error@example.test",
+                    status="failed",
+                ).count(),
+                1,
+            )
+
     def test_scheduler_processes_due_email_and_leaves_future_email_queued(self):
         user_id = self.create_user("scheduled-sender@example.test")
         now = datetime.now(timezone.utc)

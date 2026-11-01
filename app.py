@@ -76,7 +76,7 @@ INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
 if os.name == "posix":
     INSTANCE_DIR.chmod(0o700)
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.0.0"
 
 app = Flask(__name__)
 app.config.from_object(Config)
